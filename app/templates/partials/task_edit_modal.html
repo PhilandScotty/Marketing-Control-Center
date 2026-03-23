@@ -1,0 +1,150 @@
+<form hx-post="/tasks/{{ task.id }}/update" hx-target="[data-task-id='{{ task.id }}']" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful){closeEditModal(); setTimeout(function(){window.location.reload()}, 300);}">
+    <h2 class="text-lg font-semibold mb-4">Edit Task #{{ task.id }}</h2>
+
+    <div class="space-y-3">
+        <div>
+            <label class="text-xs text-mcc-muted block mb-1">Title *</label>
+            <input type="text" name="title" class="mcc-input w-full" required value="{{ task.title }}">
+        </div>
+
+        <div>
+            <label class="text-xs text-mcc-muted block mb-1">Description</label>
+            <textarea name="description" class="mcc-input w-full h-20 resize-none">{{ task.description }}</textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Status</label>
+                <select name="status" class="mcc-select w-full">
+                    {% for val, label in statuses %}
+                    <option value="{{ val }}" {% if task.status.value == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Priority</label>
+                <select name="priority" class="mcc-select w-full">
+                    {% for val, label in priorities %}
+                    <option value="{{ val }}" {% if task.priority.value == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Assigned To</label>
+                <select name="assigned_to" class="mcc-select w-full">
+                    {% for person in ['phil', 'clint', 'karen', 'chelsea', 'scotty', 'claude'] %}
+                    <option value="{{ person }}" {% if task.assigned_to == person %}selected{% endif %}>{{ person|capitalize }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Channel</label>
+                <select name="channel_id" class="mcc-select w-full">
+                    <option value="0">None</option>
+                    {% for ch in channels %}
+                    <option value="{{ ch.id }}" {% if task.channel_id == ch.id %}selected{% endif %}>{{ ch.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Due Date</label>
+                <input type="date" name="due_date" class="mcc-input w-full" value="{{ task.due_date.isoformat() if task.due_date else '' }}">
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Start Date</label>
+                <input type="date" name="start_date" class="mcc-input w-full" value="{{ task.start_date.isoformat() if task.start_date else '' }}">
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Est. Hours</label>
+                <input type="number" name="estimated_hours" step="0.5" class="mcc-input w-full" value="{{ task.estimated_hours or '' }}">
+            </div>
+        </div>
+
+        <!-- Recurrence Section -->
+        <div id="recurrence-section" class="p-3 rounded-lg border border-mcc-border/50 bg-mcc-bg/30"
+             style="{% if task.status.value != 'recurring' and not task.recurring_frequency %}display:none{% endif %}">
+            <label class="text-xs text-mcc-muted block mb-2 font-semibold uppercase tracking-wide">Recurrence</label>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Frequency</label>
+                    <select name="recurring_frequency" id="freq-select-{{ task.id }}" class="mcc-select w-full"
+                            onchange="document.getElementById('custom-days-{{ task.id }}').style.display = this.value === 'custom' ? '' : 'none'">
+                        <option value="">None</option>
+                        <option value="daily" {% if task.recurring_frequency == 'daily' %}selected{% endif %}>Daily</option>
+                        <option value="every_3_days" {% if task.recurring_frequency == 'every_3_days' %}selected{% endif %}>Every 3 days</option>
+                        <option value="weekly" {% if task.recurring_frequency == 'weekly' %}selected{% endif %}>Weekly</option>
+                        <option value="biweekly" {% if task.recurring_frequency == 'biweekly' %}selected{% endif %}>Biweekly</option>
+                        <option value="monthly" {% if task.recurring_frequency == 'monthly' %}selected{% endif %}>Monthly</option>
+                        <option value="custom" {% if task.recurring_frequency and task.recurring_frequency not in ['daily','every_3_days','weekly','biweekly','monthly'] %}selected{% endif %}>Custom...</option>
+                    </select>
+                </div>
+                <div id="custom-days-{{ task.id }}" style="{% if not task.recurring_frequency or task.recurring_frequency in ['daily','every_3_days','weekly','biweekly','monthly',''] %}display:none{% endif %}">
+                    <label class="text-xs text-mcc-muted block mb-1">Every N days</label>
+                    <input type="number" name="recurring_custom_days" min="1" max="365" class="mcc-input w-full"
+                           value="{% if task.recurring_frequency and task.recurring_frequency not in ['daily','every_3_days','weekly','biweekly','monthly'] %}{{ task.recurring_frequency }}{% endif %}"
+                           placeholder="e.g. 10">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Blocked By (task IDs)</label>
+                <input type="text" name="blocked_by" class="mcc-input w-full"
+                       value="{{ (task.blocked_by or [])|join(', ') }}">
+                {% if task.blocked_by %}
+                <div class="mt-1 space-y-0.5">
+                    {% for tid in (task.blocked_by or []) %}
+                    {% if all_tasks %}
+                    {% set dep = all_tasks|selectattr('id', 'equalto', tid|int)|first %}
+                    {% if dep %}
+                    <div class="text-[10px] text-mcc-muted">#{{ tid }}: {{ dep.title }}</div>
+                    {% endif %}
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Blocks (task IDs)</label>
+                <input type="text" name="blocks" class="mcc-input w-full"
+                       value="{{ (task.blocks or [])|join(', ') }}">
+                {% if task.blocks %}
+                <div class="mt-1 space-y-0.5">
+                    {% for tid in (task.blocks or []) %}
+                    {% if all_tasks %}
+                    {% set dep = all_tasks|selectattr('id', 'equalto', tid|int)|first %}
+                    {% if dep %}
+                    <div class="text-[10px] text-mcc-muted">#{{ tid }}: {{ dep.title }}</div>
+                    {% endif %}
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="flex justify-end gap-3 mt-5 pt-4 border-t border-mcc-border">
+        <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm text-mcc-muted hover:text-mcc-text border border-mcc-border rounded-lg transition-colors">Cancel</button>
+        <button type="submit" class="px-4 py-2 bg-mcc-accent text-white rounded-lg text-sm font-medium hover:bg-mcc-accent/80 transition-colors">Save Changes</button>
+    </div>
+</form>
+
+<script>
+(function() {
+    var statusSelect = document.querySelector('select[name="status"]');
+    var recurrenceSection = document.getElementById('recurrence-section');
+    if (statusSelect && recurrenceSection) {
+        statusSelect.addEventListener('change', function() {
+            recurrenceSection.style.display = this.value === 'recurring' ? '' : 'none';
+        });
+    }
+})();
+</script>

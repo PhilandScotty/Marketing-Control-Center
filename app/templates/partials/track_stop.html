@@ -1,0 +1,39 @@
+<div class="space-y-4">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <button hx-get="/track/wizard" hx-target="#track-wizard-content" hx-swap="innerHTML"
+                    class="text-mcc-muted hover:text-mcc-text">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <h3 class="text-sm font-semibold">Stop Tracking</h3>
+        </div>
+        <button onclick="closeTrackModal()" class="text-mcc-muted hover:text-mcc-text p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    </div>
+    <p class="text-xs text-mcc-muted">Deprecate or pause items you no longer need to track.</p>
+
+    {% if items %}
+    <div class="space-y-1 max-h-[400px] overflow-y-auto">
+        {% for item in items %}
+        <div class="flex items-center justify-between p-2.5 bg-mcc-bg rounded-lg border border-mcc-border group hover:border-mcc-critical/30 transition-all">
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-mcc-card text-mcc-muted uppercase">{{ item.type }}</span>
+                    <span class="text-xs font-medium truncate">{{ item.name }}</span>
+                </div>
+                <p class="text-[10px] text-mcc-dim mt-0.5 ml-0">{{ item.detail }}</p>
+            </div>
+            <button hx-post="/track/stop/{{ item.type }}/{{ item.id }}" hx-target="#track-wizard-content" hx-swap="innerHTML"
+                    hx-confirm="Stop tracking {{ item.name }}?"
+                    class="hidden group-hover:flex items-center gap-1 px-2 py-1 text-[10px] text-mcc-critical bg-mcc-critical/10 rounded hover:bg-mcc-critical/20 flex-shrink-0">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                Stop
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-mcc-muted text-xs">No active trackable items found.</div>
+    {% endif %}
+</div>

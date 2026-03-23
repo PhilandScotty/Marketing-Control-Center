@@ -1,0 +1,23 @@
+# Virtual environment
+venv/
+
+# Database
+data/mcc.db
+data/backups/
+
+# Environment variables
+.env
+
+# Credentials
+credentials/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store

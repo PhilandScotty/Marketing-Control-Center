@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% block title %}Weekly Review{% endblock %}
+{% block page_title %}Weekly Review{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<div class="mb-4 text-sm text-mcc-muted">Week of {{ week_label }}</div>
+
+<div class="space-y-6">
+
+    <!-- Top Row: Summary Cards -->
+    <div class="grid grid-cols-5 gap-4">
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+            <div class="text-mcc-muted text-[10px] uppercase tracking-wide mb-1">Completed</div>
+            <div class="text-2xl font-bold text-mcc-success">{{ tasks_completed }}</div>
+            <div class="text-[10px] text-mcc-muted">tasks this week</div>
+        </div>
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+            <div class="text-mcc-muted text-[10px] uppercase tracking-wide mb-1">Added</div>
+            <div class="text-2xl font-bold">{{ tasks_added }}</div>
+            <div class="text-[10px] text-mcc-muted">new tasks</div>
+        </div>
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+            <div class="text-mcc-muted text-[10px] uppercase tracking-wide mb-1">Overdue</div>
+            <div class="text-2xl font-bold {% if tasks_overdue > 0 %}text-mcc-critical{% else %}text-mcc-success{% endif %}">{{ tasks_overdue }}</div>
+            <div class="text-[10px] text-mcc-muted">tasks past due</div>
+        </div>
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+            <div class="text-mcc-muted text-[10px] uppercase tracking-wide mb-1">Published</div>
+            <div class="text-2xl font-bold">{{ published_this_week }}</div>
+            <div class="text-[10px] text-mcc-muted">content pieces</div>
+        </div>
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+            <div class="text-mcc-muted text-[10px] uppercase tracking-wide mb-1">Progress</div>
+            {% set pct = ((tasks_done_total / total_tasks * 100) | int) if total_tasks > 0 else 0 %}
+            <div class="text-2xl font-bold">{{ pct }}%</div>
+            <div class="text-[10px] text-mcc-muted">{{ tasks_done_total }}/{{ total_tasks }} done</div>
+        </div>
+    </div>
+
+    <!-- Metrics Table -->
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+        <h3 class="text-sm font-semibold mb-3">Channel Metrics</h3>
+        {% if channel_metrics %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-mcc-border text-[10px] text-mcc-muted uppercase">
+                        <th class="text-left py-2 px-2">Channel</th>
+                        <th class="text-left py-2 px-2">Metric</th>
+                        <th class="text-right py-2 px-2">This Week</th>
+                        <th class="text-right py-2 px-2">Last Week</th>
+                        <th class="text-right py-2 px-2">Delta</th>
+                        <th class="text-center py-2 px-2 w-24">Trend</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ch_data in channel_metrics %}
+                    {% for m in ch_data.metrics %}
+                    <tr class="border-b border-mcc-border/30 hover:bg-mcc-bg/30">
+                        <td class="py-2 px-2 text-xs">{% if loop.first %}{{ ch_data.channel.name }}{% endif %}</td>
+                        <td class="py-2 px-2 text-xs text-mcc-muted">{{ m.name.replace('_', ' ').title() }}</td>
+                        <td class="py-2 px-2 text-xs text-right font-mono">
+                            {% if m.this_week is not none %}{{ "%.0f"|format(m.this_week) }}{% else %}--{% endif %}
+                        </td>
+                        <td class="py-2 px-2 text-xs text-right font-mono text-mcc-muted">
+                            {% if m.last_week is not none %}{{ "%.0f"|format(m.last_week) }}{% else %}--{% endif %}
+                        </td>
+                        <td class="py-2 px-2 text-xs text-right font-mono">
+                            {% if m.delta is not none %}
+                            <span class="{% if m.delta > 0 %}text-mcc-success{% elif m.delta < 0 %}text-mcc-critical{% else %}text-mcc-muted{% endif %}">
+                                {% if m.delta > 0 %}+{% endif %}{{ "%.0f"|format(m.delta) }}
+                                {% if m.delta_pct is not none %}({{ m.delta_pct }}%){% endif %}
+                            </span>
+                            {% else %}--{% endif %}
+                        </td>
+                        <td class="py-2 px-2">
+                            {% if m.sparkline and m.sparkline|length > 1 %}
+                            <canvas class="sparkline" data-values='{{ m.sparkline | tojson }}' width="80" height="24"></canvas>
+                            {% else %}
+                            <span class="text-[10px] text-mcc-muted text-center block">--</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-xs text-mcc-muted py-4 text-center">No metric data recorded yet. Record metrics from the dashboard or channel pages.</p>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-12 gap-4">
+        <!-- Spend Report -->
+        <div class="col-span-6 bg-mcc-card rounded-lg border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3">Monthly Spend</h3>
+            <div class="space-y-3">
+                <!-- Budget Bar -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-mcc-muted">Total Spend</span>
+                        <span class="font-mono">${{ "%.0f"|format(total_spend) }} / ${{ "%.0f"|format(budget) }}</span>
+                    </div>
+                    {% set spend_pct = ((total_spend / budget * 100) | int) if budget > 0 else 0 %}
+                    <div class="w-full bg-mcc-bg rounded-full h-2">
+                        <div class="h-2 rounded-full {% if spend_pct > 100 %}bg-mcc-critical{% elif spend_pct > 80 %}bg-mcc-warning{% else %}bg-mcc-success{% endif %}"
+                             style="width: {{ [spend_pct, 100]|min }}%"></div>
+                    </div>
+                    <div class="text-[10px] text-mcc-muted mt-0.5">
+                        ${{ "%.0f"|format(budget_remaining) }} remaining
+                        {% if budget_remaining < 0 %}<span class="text-mcc-critical">(over budget!)</span>{% endif %}
+                    </div>
+                </div>
+
+                <!-- Breakdown -->
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-mcc-bg rounded p-2">
+                        <div class="text-mcc-muted text-[10px]">Tools & Services</div>
+                        <div class="font-mono font-medium">${{ "%.0f"|format(tool_spend) }}/mo</div>
+                    </div>
+                    <div class="bg-mcc-bg rounded p-2">
+                        <div class="text-mcc-muted text-[10px]">Ad Spend</div>
+                        <div class="font-mono font-medium">${{ "%.0f"|format(ad_spend) }}</div>
+                    </div>
+                </div>
+
+                <!-- Top Tools -->
+                <div>
+                    <div class="text-[10px] text-mcc-muted uppercase tracking-wide mb-1">Active Tools</div>
+                    {% for tool in active_tools|sort(attribute='monthly_cost', reverse=True) %}
+                    {% if tool.monthly_cost|float > 0 %}
+                    <div class="flex items-center justify-between text-xs py-0.5">
+                        <span>{{ tool.name }}</span>
+                        <span class="font-mono text-mcc-muted">${{ "%.0f"|format(tool.monthly_cost) }}/mo</span>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Task Velocity -->
+        <div class="col-span-3 bg-mcc-card rounded-lg border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3">Task Velocity</h3>
+            <div class="space-y-3">
+                <div class="text-center">
+                    {% set velocity = tasks_completed - tasks_added %}
+                    <div class="text-3xl font-bold {% if velocity > 0 %}text-mcc-success{% elif velocity < 0 %}text-mcc-warning{% else %}text-mcc-muted{% endif %}">
+                        {% if velocity > 0 %}+{% endif %}{{ velocity }}
+                    </div>
+                    <div class="text-[10px] text-mcc-muted">net velocity</div>
+                </div>
+                <div class="bg-mcc-bg rounded-lg p-2 text-xs space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-mcc-success">Completed</span>
+                        <span class="font-mono">{{ tasks_completed }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-mcc-muted">Added</span>
+                        <span class="font-mono">{{ tasks_added }}</span>
+                    </div>
+                    <div class="flex justify-between border-t border-mcc-border pt-1">
+                        <span class="text-mcc-muted">Overdue</span>
+                        <span class="font-mono {% if tasks_overdue > 0 %}text-mcc-critical{% endif %}">{{ tasks_overdue }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content + Outreach Pipeline -->
+        <div class="col-span-3 space-y-4">
+            <!-- Content Pipeline -->
+            <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+                <h3 class="text-sm font-semibold mb-2">Content Pipeline</h3>
+                {% if content_by_status %}
+                <div class="space-y-1">
+                    {% for status, count in content_by_status.items() %}
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-mcc-muted capitalize">{{ status.replace('_', ' ') }}</span>
+                        <span class="font-mono">{{ count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-[10px] text-mcc-muted">No content pieces yet.</p>
+                {% endif %}
+            </div>
+
+            <!-- Outreach Pipeline -->
+            <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+                <h3 class="text-sm font-semibold mb-2">Outreach ({{ outreach_total }})</h3>
+                {% if outreach_by_status %}
+                <div class="space-y-1">
+                    {% for status, count in outreach_by_status.items() %}
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-mcc-muted capitalize">{{ status.replace('_', ' ') }}</span>
+                        <span class="font-mono">{{ count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-[10px] text-mcc-muted">No outreach contacts yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recurring Task Streaks -->
+    {% if streaks %}
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+        <h3 class="text-sm font-semibold mb-3">Recurring Task Streaks</h3>
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            {% for s in streaks %}
+            <div class="bg-mcc-bg rounded-lg p-3">
+                <div class="text-xs font-medium mb-1.5 truncate">{{ s.title }}</div>
+                <div class="flex items-center gap-3">
+                    <div class="text-center">
+                        <div class="text-lg font-bold {% if s.current_streak > 0 %}text-mcc-success{% else %}text-mcc-muted{% endif %}">
+                            {{ s.current_streak }}
+                        </div>
+                        <div class="text-[9px] text-mcc-muted uppercase">Streak</div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-1 text-[10px]">
+                            <span class="text-mcc-success">{{ s.completed }} done</span>
+                            <span class="text-mcc-muted">/</span>
+                            <span class="{% if s.missed > 0 %}text-mcc-critical{% else %}text-mcc-muted{% endif %}">{{ s.missed }} missed</span>
+                        </div>
+                        {% if s.total > 0 %}
+                        {% set done_pct = ((s.completed / s.total * 100) | int) %}
+                        <div class="w-full bg-mcc-card rounded-full h-1.5 mt-1">
+                            <div class="h-1.5 rounded-full bg-mcc-success" style="width: {{ done_pct }}%"></div>
+                        </div>
+                        {% endif %}
+                        {% if s.next_due %}
+                        <div class="text-[9px] text-mcc-muted mt-0.5">Next: {{ s.next_due.strftime('%b %d') }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Milestones -->
+    {% if milestones %}
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+        <h3 class="text-sm font-semibold mb-3">Onboarding Milestones</h3>
+        <div class="space-y-2">
+            {% for m in milestones %}
+            <div class="flex items-center gap-3">
+                <span class="text-xs text-mcc-muted w-6 text-right">{{ m.display_order }}</span>
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-0.5">
+                        <span class="text-xs font-medium">{{ m.name }}</span>
+                        <span class="text-[10px] text-mcc-muted">Day {{ m.target_days_from_start }}</span>
+                    </div>
+                    <div class="w-full bg-mcc-bg rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full bg-mcc-accent/50" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="text-[10px] text-mcc-muted mt-2">Progress bars will populate when subscriber tracking is active.</p>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Sparkline Chart.js Init -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.sparkline').forEach(function(canvas) {
+        const values = JSON.parse(canvas.dataset.values);
+        const ctx = canvas.getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: values.map((_, i) => ''),
+                datasets: [{
+                    data: values,
+                    borderColor: '#06B6D4',
+                    borderWidth: 1.5,
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 0,
+                }]
+            },
+            options: {
+                responsive: false,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                scales: {
+                    x: { display: false },
+                    y: { display: false }
+                }
+            }
+        });
+    });
+});
+</script>
+
+{% endif %}
+{% endblock %}

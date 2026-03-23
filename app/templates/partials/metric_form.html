@@ -1,0 +1,31 @@
+<form hx-post="/metrics/record" hx-target="#metric-result" hx-swap="innerHTML" class="flex items-end gap-3">
+    <div class="flex-1">
+        <label class="text-xs text-mcc-muted block mb-1">Channel</label>
+        <select name="channel_id" class="mcc-select w-full" required>
+            {% for ch in channels %}
+            <option value="{{ ch.id }}">{{ ch.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="flex-1">
+        <label class="text-xs text-mcc-muted block mb-1">Metric Name</label>
+        <input type="text" name="metric_name" placeholder="e.g. subscribers" class="mcc-input w-full" required>
+    </div>
+    <div class="w-28">
+        <label class="text-xs text-mcc-muted block mb-1">Value</label>
+        <input type="number" name="metric_value" step="0.01" class="mcc-input w-full" required>
+    </div>
+    <div class="w-24">
+        <label class="text-xs text-mcc-muted block mb-1">Unit</label>
+        <select name="unit" class="mcc-select w-full">
+            <option value="count">Count</option>
+            <option value="percent">Percent</option>
+            <option value="dollars">Dollars</option>
+            <option value="rate">Rate</option>
+        </select>
+    </div>
+    <button type="submit" class="px-4 py-2 bg-mcc-accent text-white rounded-lg text-sm font-medium hover:bg-mcc-accent/80 transition-colors">
+        Save
+    </button>
+</form>
+<div id="metric-result" class="mt-2"></div>

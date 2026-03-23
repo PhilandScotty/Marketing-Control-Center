@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block title %}Tasks{% endblock %}
+{% block page_title %}Tasks{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<!-- Task Create Modal Backdrop -->
+<div id="task-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)closeTaskModal()">
+    <div id="task-modal-content" class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-xl max-h-[85vh] overflow-y-auto p-6 shadow-2xl">
+        {% include "partials/task_create_form.html" %}
+    </div>
+</div>
+
+<!-- Header -->
+<div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+        {% set ns = namespace(total=0) %}{% for k, col in columns.items() %}{% set ns.total = ns.total + col.tasks|length %}{% endfor %}
+        <span class="text-sm text-mcc-muted">{{ ns.total }} tasks</span>
+        <a href="/roadmap" class="text-xs text-mcc-accent hover:underline">Roadmap View &rarr;</a>
+        <a href="/templates" class="text-xs text-mcc-accent hover:underline">Templates</a>
+    </div>
+    <div class="flex items-center gap-2">
+        <!-- Save as Template -->
+        <button onclick="document.getElementById('save-template-modal').classList.remove('hidden')"
+                class="px-3 py-1.5 bg-mcc-border text-mcc-muted rounded-lg text-sm hover:text-mcc-text transition-colors">
+            Save as Template
+        </button>
+        <button onclick="openTaskModal()" class="px-3 py-1.5 bg-mcc-accent text-white rounded-lg text-sm font-medium hover:bg-mcc-accent/80 transition-colors">
+            + New Task
+        </button>
+    </div>
+</div>
+
+<!-- Kanban Board -->
+<div class="relative" id="kanban-wrapper">
+    <!-- Scroll Left Arrow -->
+    <button id="scroll-left" onclick="document.getElementById('kanban-board').scrollBy({left: -272, behavior: 'smooth'})"
+            class="absolute left-0 top-0 bottom-0 z-10 w-10 bg-gradient-to-r from-[#0F0F23] via-[#0F0F23]/90 to-transparent flex items-center justify-start pl-1">
+        <span class="w-10 h-20 rounded-r-xl bg-mcc-card border border-l-0 border-mcc-border flex items-center justify-center text-mcc-muted hover:text-mcc-accent hover:bg-mcc-secondary transition-colors shadow-lg cursor-pointer">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        </span>
+    </button>
+    <!-- Scroll Right Arrow -->
+    <button id="scroll-right" onclick="document.getElementById('kanban-board').scrollBy({left: 272, behavior: 'smooth'})"
+            class="absolute right-0 top-0 bottom-0 z-10 w-10 bg-gradient-to-l from-[#0F0F23] via-[#0F0F23]/90 to-transparent flex items-center justify-end pr-1">
+        <span class="w-10 h-20 rounded-l-xl bg-mcc-card border border-r-0 border-mcc-border flex items-center justify-center text-mcc-muted hover:text-mcc-accent hover:bg-mcc-secondary transition-colors shadow-lg cursor-pointer">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </span>
+    </button>
+
+    <div class="flex gap-3 overflow-x-auto kanban-scroll px-12" id="kanban-board" style="min-height: calc(100vh - 300px); padding-bottom: 50px;">
+        {% for key in column_order %}
+        {% set col = columns[key] %}
+        <div class="kanban-column flex-shrink-0 w-64 flex flex-col" data-status="{{ key }}">
+            <!-- Column Header -->
+            <div class="flex items-center justify-between mb-2 px-1">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full" style="background: {{ col.color }};"></span>
+                    <span class="text-xs font-semibold uppercase tracking-wide">{{ col.label }}</span>
+                </div>
+                <span class="kanban-count text-[10px] text-mcc-muted bg-mcc-bg px-1.5 py-0.5 rounded">{{ col.tasks|length }}</span>
+            </div>
+
+            <!-- Column Body (droppable) -->
+            <div class="kanban-list flex-1 bg-mcc-bg/30 rounded-lg p-2 space-y-2 min-h-[100px] border border-dashed border-transparent"
+                 data-status="{{ key }}" id="col-{{ key }}">
+                {% for task in col.tasks %}
+                {% include "partials/task_card.html" %}
+                {% endfor %}
+            </div>
+
+            {% if key == 'done' and archived_count is defined and archived_count > 0 %}
+            <div class="mt-2 px-1">
+                <button onclick="openArchiveModal()" class="text-[10px] text-mcc-muted/60 hover:text-mcc-accent transition-colors">
+                    View Archive ({{ archived_count }})
+                </button>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Edit Modal (loaded via HTMX) -->
+<div id="edit-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)closeEditModal()">
+    <div id="edit-modal-content" class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-xl max-h-[85vh] overflow-y-auto p-6 shadow-2xl">
+    </div>
+</div>
+
+<!-- Detail Modal (expanded task view) -->
+<div id="detail-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)closeDetailModal()">
+    <div id="detail-modal-content" class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 shadow-2xl">
+    </div>
+</div>
+
+<!-- Save as Template Modal -->
+<div id="save-template-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-md p-6 shadow-2xl" onclick="event.stopPropagation()">
+        <h3 class="text-sm font-semibold mb-4">Save Tasks as Template</h3>
+        <form hx-post="/templates/save-from-project" hx-swap="innerHTML" hx-target="body">
+            <input type="hidden" name="project_slug" value="{{ project.slug }}">
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Template Name</label>
+                    <input type="text" name="name" class="mcc-input w-full" required placeholder="e.g. SaaS Product Launch">
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Description</label>
+                    <textarea name="description" class="mcc-input w-full h-20 resize-none" placeholder="What this template covers..."></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-5 pt-4 border-t border-mcc-border">
+                <button type="button" onclick="document.getElementById('save-template-modal').classList.add('hidden')"
+                        class="px-4 py-2 text-sm text-mcc-muted hover:text-mcc-text border border-mcc-border rounded-lg">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-mcc-accent text-white rounded-lg text-sm font-medium hover:bg-mcc-accent/80">Save Template</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Archive Modal -->
+<div id="archive-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)closeArchiveModal()">
+    <div class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between p-4 border-b border-mcc-border">
+            <h3 class="text-sm font-semibold">Archived Tasks</h3>
+            <button onclick="closeArchiveModal()" class="text-mcc-muted hover:text-mcc-text">&times;</button>
+        </div>
+        <div class="px-4 py-2 border-b border-mcc-border">
+            <input type="text" id="archive-search" placeholder="Search archived tasks..."
+                   class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-1.5 text-xs text-mcc-text placeholder-mcc-muted/50"
+                   hx-get="/tasks/archive" hx-trigger="keyup changed delay:300ms" hx-target="#archive-results"
+                   name="q">
+        </div>
+        <div id="archive-results" class="flex-1 overflow-y-auto"></div>
+    </div>
+</div>
+
+<!-- Monitoring Modal Target (injected by /tasks/move response) -->
+<div id="monitoring-modal-target" hx-swap-oob="true"></div>
+
+<style>
+/* Thick, always-visible kanban scrollbar */
+.kanban-scroll::-webkit-scrollbar { height: 36px; }
+.kanban-scroll::-webkit-scrollbar-track { background: #1a1a2e; border-radius: 18px; }
+.kanban-scroll::-webkit-scrollbar-thumb { background: #00d4aa; border-radius: 18px; border: 6px solid #1a1a2e; min-width: 80px; }
+.kanban-scroll::-webkit-scrollbar-thumb:hover { background: #00e8bb; }
+.kanban-scroll { scrollbar-width: auto; scrollbar-color: #00d4aa #1a1a2e; overflow-x: scroll !important; }
+</style>
+
+<script>
+// --- Update column counts helper ---
+function updateColumnCounts() {
+    document.querySelectorAll('.kanban-column').forEach(function(col) {
+        var list = col.querySelector('.kanban-list');
+        var count = list.querySelectorAll('.task-card').length;
+        var badge = col.querySelector('.kanban-count');
+        if (badge) badge.textContent = count;
+    });
+}
+
+// --- Move task from detail modal ---
+function moveTaskFromModal(taskId, newStatus) {
+    // Save any notes first
+    saveTaskNotes(taskId);
+    // Check if this card is recurring (has frequency badge)
+    var card = document.querySelector('[data-task-id="' + taskId + '"]');
+    var isRecurring = card && card.closest('[data-status="recurring"]') !== null;
+    // Close modal immediately for responsiveness
+    closeDetailModal();
+
+    fetch('/tasks/move', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'task_id=' + taskId + '&new_status=' + newStatus
+    }).then(function(resp) {
+        if (!resp.ok) { console.error('Move failed'); return; }
+        // Recurring tasks moving to Done create a new copy — need full reload
+        if (newStatus === 'done' && isRecurring) {
+            window.location.reload();
+            return;
+        }
+        resp.text().then(function(html) {
+            // If server returned monitoring prompt HTML, show it
+            if (html.trim()) {
+                document.body.insertAdjacentHTML('beforeend', html);
+            }
+            // Move the card DOM element to the target column
+            var targetCol = document.getElementById('col-' + newStatus);
+            if (card && targetCol) {
+                targetCol.appendChild(card);
+                updateColumnCounts();
+            } else {
+                window.location.reload();
+            }
+        });
+    });
+}
+
+// --- Kanban drag-and-drop with Sortable.js ---
+document.querySelectorAll('.kanban-list').forEach(function(list) {
+    new Sortable(list, {
+        group: 'kanban',
+        animation: 150,
+        ghostClass: 'kanban-ghost',
+        dragClass: 'kanban-drag',
+        handle: '.task-card',
+        onEnd: function(evt) {
+            var taskId = evt.item.dataset.taskId;
+            var newStatus = evt.to.dataset.status;
+            fetch('/tasks/move', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: 'task_id=' + taskId + '&new_status=' + newStatus
+            }).then(function(resp) {
+                if (!resp.ok) console.error('Move failed');
+                if (newStatus === 'done') {
+                    resp.text().then(function(html) {
+                        if (html.trim()) {
+                            document.body.insertAdjacentHTML('beforeend', html);
+                        }
+                    });
+                }
+                updateColumnCounts();
+            });
+        }
+    });
+});
+
+// --- Horizontal drag-to-scroll on board ---
+(function() {
+    var board = document.getElementById('kanban-board');
+    var isDown = false, startX, scrollLeft;
+    board.addEventListener('mousedown', function(e) {
+        // Only activate on empty space, not on cards or buttons
+        if (e.target.closest('.task-card, button, a, select, input')) return;
+        isDown = true;
+        board.style.cursor = 'grabbing';
+        startX = e.pageX - board.offsetLeft;
+        scrollLeft = board.scrollLeft;
+    });
+    board.addEventListener('mouseleave', function() { isDown = false; board.style.cursor = ''; });
+    board.addEventListener('mouseup', function() { isDown = false; board.style.cursor = ''; });
+    board.addEventListener('mousemove', function(e) {
+        if (!isDown) return;
+        e.preventDefault();
+        var x = e.pageX - board.offsetLeft;
+        board.scrollLeft = scrollLeft - (x - startX);
+    });
+})();
+
+// --- Scroll arrow visibility ---
+(function() {
+    var board = document.getElementById('kanban-board');
+    var btnL = document.getElementById('scroll-left');
+    var btnR = document.getElementById('scroll-right');
+    function updateArrows() {
+        btnL.style.opacity = board.scrollLeft > 10 ? '1' : '0.3';
+        btnR.style.opacity = board.scrollLeft < board.scrollWidth - board.clientWidth - 10 ? '1' : '0.3';
+    }
+    board.addEventListener('scroll', updateArrows);
+    updateArrows();
+})();
+
+// --- Dependency hover highlighting ---
+document.addEventListener('mouseenter', function(e) {
+    if (!e.target || !e.target.closest) return;
+    var card = e.target.closest('.task-card');
+    if (!card) return;
+    var blockedBy = JSON.parse(card.dataset.blockedBy || '[]');
+    var blocks = JSON.parse(card.dataset.blocks || '[]');
+    blockedBy.forEach(function(id) {
+        var el = document.querySelector('[data-task-id="' + id + '"]');
+        if (el) el.classList.add('dep-blocked-by');
+    });
+    blocks.forEach(function(id) {
+        var el = document.querySelector('[data-task-id="' + id + '"]');
+        if (el) el.classList.add('dep-blocks');
+    });
+}, true);
+
+document.addEventListener('mouseleave', function(e) {
+    if (!e.target || !e.target.closest) return;
+    var card = e.target.closest('.task-card');
+    if (!card) return;
+    document.querySelectorAll('.dep-blocked-by, .dep-blocks').forEach(function(el) {
+        el.classList.remove('dep-blocked-by', 'dep-blocks');
+    });
+}, true);
+
+// --- Modal controls ---
+function openTaskModal() {
+    document.getElementById('task-modal-backdrop').classList.remove('hidden');
+}
+function closeTaskModal() {
+    document.getElementById('task-modal-backdrop').classList.add('hidden');
+}
+function openEditModal(taskId) {
+    var modal = document.getElementById('edit-modal-backdrop');
+    var content = document.getElementById('edit-modal-content');
+    modal.classList.remove('hidden');
+    fetch('/tasks/' + taskId + '/edit?_t=' + Date.now(), {cache: 'no-store'})
+        .then(function(r) { return r.text(); })
+        .then(function(html) { content.innerHTML = html; });
+}
+function closeEditModal() {
+    document.getElementById('edit-modal-backdrop').classList.add('hidden');
+    document.getElementById('edit-modal-content').innerHTML = '';
+}
+function openDetailModal(taskId) {
+    var modal = document.getElementById('detail-modal-backdrop');
+    var content = document.getElementById('detail-modal-content');
+    modal.classList.remove('hidden');
+    fetch('/tasks/' + taskId + '/detail?_t=' + Date.now(), {cache: 'no-store'})
+        .then(function(r) { return r.text(); })
+        .then(function(html) { content.innerHTML = html; htmx.process(content); });
+}
+function saveTaskNotes(taskId) {
+    var ta = document.getElementById('task-notes-' + taskId);
+    if (!ta) return;
+    fetch('/tasks/' + taskId + '/save-notes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'description=' + encodeURIComponent(ta.value)
+    });
+}
+function openArchiveModal() {
+    document.getElementById('archive-modal-backdrop').classList.remove('hidden');
+    document.getElementById('archive-search').value = '';
+    htmx.ajax('GET', '/tasks/archive', '#archive-results');
+}
+function closeArchiveModal() {
+    document.getElementById('archive-modal-backdrop').classList.add('hidden');
+}
+function closeDetailModal() {
+    var ta = document.querySelector('#detail-modal-content textarea[id^="task-notes-"]');
+    if (ta) {
+        var taskId = ta.id.replace('task-notes-', '');
+        saveTaskNotes(taskId);
+    }
+    document.getElementById('detail-modal-backdrop').classList.add('hidden');
+    document.getElementById('detail-modal-content').innerHTML = '';
+}
+</script>
+
+{% endif %}
+{% endblock %}

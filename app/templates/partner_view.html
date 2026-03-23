@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project.name }} — Partner View</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        mcc: {
+                            bg: '#0F0F23', card: '#1A1A2E', border: '#2A2A3E',
+                            accent: '#06B6D4', secondary: '#164E63',
+                            text: '#F0F0F0', muted: '#8B8B9E',
+                            success: '#10B981', warning: '#F59E0B', critical: '#EF4444',
+                        }
+                    },
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full bg-mcc-bg text-mcc-text font-sans">
+    <!-- Banner -->
+    {% if partner_view.banner_text %}
+    <div class="bg-mcc-accent/20 border-b border-mcc-accent/30 px-6 py-2 text-center text-xs text-mcc-accent">
+        {{ partner_view.banner_text }}
+    </div>
+    {% endif %}
+
+    <div class="max-w-6xl mx-auto px-6 py-8">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-2xl font-bold">{{ project.name }}</h1>
+                <p class="text-sm text-mcc-muted mt-1">Shared view for {{ partner_view.name }} &middot; {{ partner_view.preset|replace('_', ' ')|title }}</p>
+            </div>
+            <div class="text-xs text-mcc-muted">
+                {% if project.launch_date %}
+                Launch: {{ project.launch_date.strftime('%b %d, %Y') }}
+                {% set days = (project.launch_date - today).days %}
+                {% if days > 0 %}<span class="text-mcc-accent ml-1">T-{{ days }} days</span>{% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            {% set components = data.components %}
+
+            {% if 'dashboard' in components %}
+            <!-- Execution Score -->
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-6">
+                <h2 class="font-semibold mb-4">Execution Score</h2>
+                <div class="flex items-center gap-4">
+                    <div class="text-4xl font-bold {% if data.exec_score.color == 'success' %}text-mcc-success{% elif data.exec_score.color == 'warning' %}text-mcc-warning{% else %}text-mcc-critical{% endif %}">
+                        {{ data.exec_score.total }}
+                    </div>
+                    <div class="text-xs text-mcc-muted">/ 100</div>
+                </div>
+                <div class="grid grid-cols-3 gap-4 mt-4">
+                    {% for name, comp in data.exec_score.components.items() %}
+                    <div class="text-xs">
+                        <div class="text-mcc-muted">{{ name|title }} ({{ comp.weight }}%)</div>
+                        <div class="font-mono">{{ comp.score }}/100</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Channels -->
+            {% if data.channels %}
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-6">
+                <h2 class="font-semibold mb-4">Channels ({{ data.channels|length }})</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    {% for ch in data.channels %}
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="w-2 h-2 rounded-full health-{{ ch.health.value }}"></span>
+                        <span>{{ ch.name }}</span>
+                        <span class="text-mcc-muted ml-auto">{{ ch.status.value }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            {% if 'tasks' in components and data.tasks %}
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-6">
+                <h2 class="font-semibold mb-4">Active Tasks ({{ data.tasks|length }})</h2>
+                <div class="space-y-2">
+                    {% for t in data.tasks %}
+                    <div class="flex items-center justify-between text-xs py-1 border-b border-mcc-border/30">
+                        <div class="flex items-center gap-2">
+                            <span class="px-1.5 py-0.5 rounded text-[10px]
+                                {% if t.priority.value == 'launch_critical' %}bg-red-500/20 text-red-400
+                                {% elif t.priority.value == 'high' %}bg-orange-500/20 text-orange-400
+                                {% else %}bg-mcc-border text-mcc-muted{% endif %}">
+                                {{ t.priority.value|replace('_', ' ') }}
+                            </span>
+                            <span>{{ t.title }}</span>
+                        </div>
+                        <div class="text-mcc-muted">
+                            {{ t.status.value|replace('_', ' ') }}
+                            {% if t.due_date %} &middot; {{ t.due_date.strftime('%b %d') }}{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if 'content' in components and data.content %}
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-6">
+                <h2 class="font-semibold mb-4">Content Pipeline ({{ data.content|length }})</h2>
+                <div class="space-y-2">
+                    {% for c in data.content %}
+                    <div class="flex items-center justify-between text-xs py-1 border-b border-mcc-border/30">
+                        <span>{{ c.title }}</span>
+                        <span class="text-mcc-muted">{{ c.status.value|replace('_', ' ') }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if 'automations' in components and data.automations %}
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-6">
+                <h2 class="font-semibold mb-4">Automations ({{ data.automations|length }})</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    {% for a in data.automations %}
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="w-2 h-2 rounded-full
+                            {% if a.health.value == 'running' %}bg-mcc-success
+                            {% elif a.health.value == 'stale' %}bg-mcc-warning
+                            {% elif a.health.value == 'failed' %}bg-mcc-critical
+                            {% else %}bg-mcc-muted{% endif %}"></span>
+                        <span>{{ a.name }}</span>
+                        <span class="text-mcc-muted ml-auto">{{ a.health.value }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if 'subscribers' in components and data.subscriber_snapshots %}
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-6">
+                <h2 class="font-semibold mb-4">Subscribers</h2>
+                <div class="grid grid-cols-3 gap-4">
+                    {% for s in data.subscriber_snapshots %}
+                    <div class="text-center">
+                        <div class="text-lg font-bold">{{ s.count }}</div>
+                        <div class="text-[10px] text-mcc-muted">{{ s.stage.value|replace('_', ' ')|title }}</div>
+                        {% if s.mrr %}<div class="text-[10px] text-mcc-success">${{ "%.0f"|format(s.mrr) }} MRR</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if 'ads' in components and data.ads %}
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-6">
+                <h2 class="font-semibold mb-4">Ad Campaigns</h2>
+                <div class="space-y-2">
+                    {% for ad in data.ads %}
+                    <div class="flex items-center justify-between text-xs py-1 border-b border-mcc-border/30">
+                        <span>{{ ad.campaign_name }}</span>
+                        <div class="flex items-center gap-3">
+                            <span class="text-mcc-muted">{{ ad.platform.value }}</span>
+                            {% if ad.signal %}
+                            <span class="px-1.5 py-0.5 rounded text-[10px]
+                                {% if ad.signal.value == 'scale' %}bg-green-500/20 text-green-400
+                                {% elif ad.signal.value == 'kill' %}bg-red-500/20 text-red-400
+                                {% else %}bg-mcc-border text-mcc-muted{% endif %}">
+                                {{ ad.signal.value|upper }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="mt-8 text-center text-[10px] text-mcc-muted">
+            Marketing Command Center &middot; Read-only partner view &middot; {{ today.strftime('%B %d, %Y') }}
+        </div>
+    </div>
+
+    <link rel="stylesheet" href="/static/css/custom.css">
+</body>
+</html>

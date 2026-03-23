@@ -1,0 +1,492 @@
+{% extends "base.html" %}
+{% block title %}Marketing Intelligence{% endblock %}
+{% block page_title %}Marketing Intelligence{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+    <!-- Header + Summary -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <p class="text-xs text-mcc-muted">Opportunities, tools, and landscape changes you wouldn't find on your own.</p>
+        </div>
+        <div class="flex items-center gap-3 text-xs">
+            {% if counts is defined %}
+            <span class="px-2 py-1 rounded bg-mcc-accent/10 text-mcc-accent font-medium">{{ counts.total }} unreviewed</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex items-center gap-1 border-b border-mcc-border">
+        <a href="/intelligence?tab=channels"
+           class="px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px {% if tab == 'channels' %}border-mcc-accent text-mcc-accent{% else %}border-transparent text-mcc-muted hover:text-mcc-text{% endif %}">
+            Channel Discovery
+            {% if counts is defined and counts.channels > 0 %}
+            <span class="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] bg-mcc-accent/20 text-mcc-accent">{{ counts.channels }}</span>
+            {% endif %}
+        </a>
+        <a href="/intelligence?tab=tools"
+           class="px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px {% if tab == 'tools' %}border-mcc-accent text-mcc-accent{% else %}border-transparent text-mcc-muted hover:text-mcc-text{% endif %}">
+            Tool Discovery
+            {% if counts is defined and counts.tools > 0 %}
+            <span class="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] bg-mcc-accent/20 text-mcc-accent">{{ counts.tools }}</span>
+            {% endif %}
+        </a>
+        <a href="/intelligence?tab=landscape"
+           class="px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px {% if tab == 'landscape' %}border-mcc-accent text-mcc-accent{% else %}border-transparent text-mcc-muted hover:text-mcc-text{% endif %}">
+            Landscape Monitor
+            {% if counts is defined and counts.landscape > 0 %}
+            <span class="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] bg-mcc-accent/20 text-mcc-accent">{{ counts.landscape }}</span>
+            {% endif %}
+        </a>
+    </div>
+
+    <!-- ==================== TAB 1: CHANNEL DISCOVERY ==================== -->
+    {% if tab == 'channels' %}
+    <div class="space-y-4">
+        <div class="flex items-center justify-between">
+            <p class="text-xs text-mcc-muted">Marketing channels Grindlab isn't using that could be effective.</p>
+            <button hx-post="/intelligence/generate/channels"
+                    hx-target="#channel-gen-result"
+                    hx-swap="innerHTML"
+                    hx-indicator="#channel-gen-spinner"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-mcc-accent/20 text-mcc-accent border border-mcc-accent/30 hover:bg-mcc-accent/30 transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                {% if channel_items %}Refresh{% else %}Generate{% endif %} Discoveries
+            </button>
+        </div>
+
+        <div id="channel-gen-result"></div>
+        <div id="channel-gen-spinner" class="htmx-indicator flex items-center gap-2 py-4">
+            <svg class="animate-spin w-4 h-4 text-mcc-accent" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <span class="text-xs text-mcc-muted">Analyzing channel opportunities with AI...</span>
+        </div>
+
+        {% if channel_items %}
+        <div class="space-y-3">
+            {% for item in channel_items %}
+            <div class="bg-mcc-card border border-mcc-border rounded-card overflow-hidden" id="intel-{{ item.id }}">
+                <details class="group">
+                    <summary class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-mcc-card-hover transition-colors list-none">
+                        <!-- Fit score badge -->
+                        <div class="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold
+                            {% if item.fit_score and item.fit_score >= 8 %}bg-mcc-success/15 text-mcc-success border border-mcc-success/20
+                            {% elif item.fit_score and item.fit_score >= 6 %}bg-mcc-accent/15 text-mcc-accent border border-mcc-accent/20
+                            {% else %}bg-mcc-warning/15 text-mcc-warning border border-mcc-warning/20{% endif %}">
+                            {{ item.fit_score or '?' }}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium text-mcc-text">{{ item.title }}</div>
+                            <div class="text-[10px] text-mcc-muted mt-0.5 flex items-center gap-3">
+                                {% if item.cost_per_month %}<span>{{ item.cost_per_month }}</span>{% endif %}
+                                {% if item.time_per_week %}<span>{{ item.time_per_week }}/wk</span>{% endif %}
+                                {% if item.timeline_to_results %}<span>{{ item.timeline_to_results }}</span>{% endif %}
+                            </div>
+                        </div>
+                        {% if item.status.value == 'new' %}
+                        <span class="px-2 py-0.5 rounded text-[9px] font-medium bg-mcc-accent/15 text-mcc-accent">New</span>
+                        {% endif %}
+                        <svg class="w-4 h-4 text-mcc-muted transition-transform group-open:rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+
+                    <div class="px-4 pb-4 pt-1 border-t border-mcc-border/50">
+                        <p class="text-xs text-mcc-text leading-relaxed mb-3">{{ item.body }}</p>
+
+                        <div class="grid grid-cols-3 gap-3 mb-3">
+                            {% if item.time_per_week %}
+                            <div class="bg-mcc-bg/50 rounded-lg p-2">
+                                <div class="text-[9px] text-mcc-muted">Time/Week</div>
+                                <div class="text-xs font-medium">{{ item.time_per_week }}</div>
+                            </div>
+                            {% endif %}
+                            {% if item.cost_per_month %}
+                            <div class="bg-mcc-bg/50 rounded-lg p-2">
+                                <div class="text-[9px] text-mcc-muted">Cost/Month</div>
+                                <div class="text-xs font-medium">{{ item.cost_per_month }}</div>
+                            </div>
+                            {% endif %}
+                            {% if item.timeline_to_results %}
+                            <div class="bg-mcc-bg/50 rounded-lg p-2">
+                                <div class="text-[9px] text-mcc-muted">Timeline</div>
+                                <div class="text-xs font-medium">{{ item.timeline_to_results }}</div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        {% if item.risk_downside %}
+                        <div class="text-[10px] text-mcc-warning mb-3">Risk: {{ item.risk_downside }}</div>
+                        {% endif %}
+
+                        <div class="flex items-center gap-2 pt-2 border-t border-mcc-border/30">
+                            <button hx-post="/intelligence/items/{{ item.id }}/add-planned"
+                                    hx-target="#intel-{{ item.id }}"
+                                    hx-swap="outerHTML"
+                                    class="px-3 py-1 rounded text-[10px] font-medium bg-mcc-success/15 text-mcc-success hover:bg-mcc-success/25 transition-colors">
+                                Add to Planned
+                            </button>
+                            <button hx-post="/intelligence/items/{{ item.id }}/add-task"
+                                    hx-target="#intel-{{ item.id }}"
+                                    hx-swap="outerHTML"
+                                    class="px-3 py-1 rounded text-[10px] font-medium bg-mcc-accent/15 text-mcc-accent hover:bg-mcc-accent/25 transition-colors">
+                                +Task to Evaluate
+                            </button>
+                            <button hx-post="/intelligence/items/{{ item.id }}/dismiss"
+                                    hx-target="#intel-{{ item.id }}"
+                                    hx-swap="outerHTML"
+                                    hx-vals='{"reason": "Not relevant for Grindlab"}'
+                                    class="px-3 py-1 rounded text-[10px] font-medium bg-mcc-dim/30 text-mcc-muted hover:bg-mcc-dim/50 transition-colors ml-auto">
+                                Not Relevant
+                            </button>
+                        </div>
+                    </div>
+                </details>
+            </div>
+            {% endfor %}
+        </div>
+        {% elif not ai_configured %}
+        <div class="text-center py-12 text-mcc-muted">
+            <p class="text-sm">AI not configured</p>
+            <p class="text-xs mt-1">Set ANTHROPIC_API_KEY in .env to generate channel discoveries</p>
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-mcc-muted">
+            <p class="text-sm">No channel discoveries yet</p>
+            <p class="text-xs mt-1">Click "Generate Discoveries" to scan for opportunities</p>
+        </div>
+        {% endif %}
+
+        <!-- Not Recommended Section -->
+        {% if channel_not_recommended %}
+        <details class="mt-4">
+            <summary class="flex items-center gap-2 cursor-pointer text-xs text-mcc-dim hover:text-mcc-muted transition-colors">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                Not Recommended ({{ channel_not_recommended|length }}) — channels considered and rejected
+            </summary>
+            <div class="mt-2 space-y-1.5 pl-5">
+                {% for nr in channel_not_recommended %}
+                <div class="flex items-start gap-2 py-1.5">
+                    <span class="text-[10px] text-mcc-dim mt-0.5">&#x2717;</span>
+                    <div>
+                        <span class="text-xs text-mcc-muted font-medium">{{ nr.title }}</span>
+                        <span class="text-[10px] text-mcc-dim"> — {{ nr.rejection_reason }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+    </div>
+
+    <!-- ==================== TAB 2: TOOL DISCOVERY ==================== -->
+    {% elif tab == 'tools' %}
+    <div class="space-y-4">
+        <!-- Stack Health Summary -->
+        <div class="bg-mcc-card border border-mcc-border rounded-card p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider">Stack Health</h3>
+                <button hx-post="/intelligence/generate/tools"
+                        hx-target="#tool-gen-result"
+                        hx-swap="innerHTML"
+                        hx-indicator="#tool-gen-spinner"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-mcc-accent/20 text-mcc-accent border border-mcc-accent/30 hover:bg-mcc-accent/30 transition-all">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    {% if tool_items %}Refresh{% else %}Scan{% endif %} Tool Stack
+                </button>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+                <div class="text-center">
+                    <div class="text-lg font-bold font-mono text-mcc-text">${{ "{:,.0f}".format(total_tool_spend) }}</div>
+                    <div class="text-[10px] text-mcc-muted">Monthly Tool Spend</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-lg font-bold font-mono text-mcc-text">{{ tool_count }}</div>
+                    <div class="text-[10px] text-mcc-muted">Active Tools</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-lg font-bold font-mono text-mcc-accent">{{ tool_items|length }}</div>
+                    <div class="text-[10px] text-mcc-muted">Recommendations</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tool-gen-result"></div>
+        <div id="tool-gen-spinner" class="htmx-indicator flex items-center gap-2 py-4">
+            <svg class="animate-spin w-4 h-4 text-mcc-accent" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <span class="text-xs text-mcc-muted">Analyzing tool stack with AI...</span>
+        </div>
+
+        {% if tool_by_cat %}
+        {% for cat, items in tool_by_cat.items() %}
+        <div class="space-y-2">
+            <h3 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider flex items-center gap-2">
+                {{ cat }}
+                <span class="text-[9px] text-mcc-dim font-normal">{{ items|length }}</span>
+            </h3>
+            {% for item in items %}
+            <div class="bg-mcc-card border border-mcc-border rounded-card overflow-hidden" id="intel-{{ item.id }}">
+                <details class="group">
+                    <summary class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-mcc-card-hover transition-colors list-none">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold
+                            {% if item.fit_score and item.fit_score >= 8 %}bg-mcc-success/15 text-mcc-success border border-mcc-success/20
+                            {% elif item.fit_score and item.fit_score >= 6 %}bg-mcc-accent/15 text-mcc-accent border border-mcc-accent/20
+                            {% else %}bg-mcc-warning/15 text-mcc-warning border border-mcc-warning/20{% endif %}">
+                            {{ item.fit_score or '?' }}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium text-mcc-text">{{ item.title }}</div>
+                            <div class="text-[10px] text-mcc-muted mt-0.5">
+                                {% if item.replaces_tool %}Replaces: {{ item.replaces_tool }}{% endif %}
+                                {% if item.tool_cost %} · {{ item.tool_cost }}{% endif %}
+                                {% if item.net_cost_impact %} · {{ item.net_cost_impact }}{% endif %}
+                            </div>
+                        </div>
+                        {% if item.status.value == 'new' %}
+                        <span class="px-2 py-0.5 rounded text-[9px] font-medium bg-mcc-accent/15 text-mcc-accent">New</span>
+                        {% endif %}
+                        <svg class="w-4 h-4 text-mcc-muted transition-transform group-open:rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </summary>
+                    <div class="px-4 pb-4 pt-1 border-t border-mcc-border/50">
+                        <p class="text-xs text-mcc-text leading-relaxed mb-3">{{ item.body }}</p>
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            {% if item.replaces_tool %}
+                            <div class="bg-mcc-bg/50 rounded-lg p-2">
+                                <div class="text-[9px] text-mcc-muted">Replaces/Improves</div>
+                                <div class="text-xs font-medium">{{ item.replaces_tool }}</div>
+                            </div>
+                            {% endif %}
+                            {% if item.tool_cost %}
+                            <div class="bg-mcc-bg/50 rounded-lg p-2">
+                                <div class="text-[9px] text-mcc-muted">Cost</div>
+                                <div class="text-xs font-medium">{{ item.tool_cost }}</div>
+                            </div>
+                            {% endif %}
+                            {% if item.net_cost_impact %}
+                            <div class="bg-mcc-bg/50 rounded-lg p-2">
+                                <div class="text-[9px] text-mcc-muted">Net Impact</div>
+                                <div class="text-xs font-medium">{{ item.net_cost_impact }}</div>
+                            </div>
+                            {% endif %}
+                            {% if item.integration_complexity %}
+                            <div class="bg-mcc-bg/50 rounded-lg p-2">
+                                <div class="text-[9px] text-mcc-muted">Complexity</div>
+                                <div class="text-xs font-medium">{{ item.integration_complexity }}</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if item.confidence_level %}
+                        <div class="text-[10px] text-mcc-muted mb-3">Confidence: {{ item.confidence_level }}</div>
+                        {% endif %}
+
+                        <div class="flex items-center gap-2 pt-2 border-t border-mcc-border/30">
+                            <button hx-post="/intelligence/items/{{ item.id }}/add-task"
+                                    hx-target="#intel-{{ item.id }}"
+                                    hx-swap="outerHTML"
+                                    class="px-3 py-1 rounded text-[10px] font-medium bg-mcc-accent/15 text-mcc-accent hover:bg-mcc-accent/25 transition-colors">
+                                Evaluate (Add Task)
+                            </button>
+                            <button hx-post="/intelligence/items/{{ item.id }}/dismiss"
+                                    hx-target="#intel-{{ item.id }}"
+                                    hx-swap="outerHTML"
+                                    hx-vals='{"reason": "Already considered"}'
+                                    class="px-3 py-1 rounded text-[10px] font-medium bg-mcc-dim/30 text-mcc-muted hover:bg-mcc-dim/50 transition-colors">
+                                Already Considered
+                            </button>
+                            <button hx-post="/intelligence/items/{{ item.id }}/dismiss"
+                                    hx-target="#intel-{{ item.id }}"
+                                    hx-swap="outerHTML"
+                                    hx-vals='{"reason": "Using better alternative"}'
+                                    class="px-3 py-1 rounded text-[10px] font-medium bg-mcc-dim/30 text-mcc-muted hover:bg-mcc-dim/50 transition-colors ml-auto">
+                                Have Better Alternative
+                            </button>
+                        </div>
+                    </div>
+                </details>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        {% elif not ai_configured %}
+        <div class="text-center py-12 text-mcc-muted">
+            <p class="text-sm">AI not configured</p>
+            <p class="text-xs mt-1">Set ANTHROPIC_API_KEY in .env to scan your tool stack</p>
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-mcc-muted">
+            <p class="text-sm">No tool recommendations yet</p>
+            <p class="text-xs mt-1">Click "Scan Tool Stack" to find optimization opportunities</p>
+        </div>
+        {% endif %}
+
+        {% if tool_not_recommended %}
+        <details class="mt-4">
+            <summary class="flex items-center gap-2 cursor-pointer text-xs text-mcc-dim hover:text-mcc-muted transition-colors">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                Not Recommended ({{ tool_not_recommended|length }})
+            </summary>
+            <div class="mt-2 space-y-1.5 pl-5">
+                {% for nr in tool_not_recommended %}
+                <div class="flex items-start gap-2 py-1.5">
+                    <span class="text-[10px] text-mcc-dim mt-0.5">&#x2717;</span>
+                    <div>
+                        <span class="text-xs text-mcc-muted font-medium">{{ nr.title }}</span>
+                        <span class="text-[10px] text-mcc-dim"> — {{ nr.rejection_reason }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+    </div>
+
+    <!-- ==================== TAB 3: LANDSCAPE MONITOR ==================== -->
+    {% elif tab == 'landscape' %}
+    <div class="space-y-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <p class="text-xs text-mcc-muted">Competitor moves, platform changes, and industry shifts.</p>
+                {% if landscape_this_week is defined %}
+                <span class="text-[10px] text-mcc-accent">{{ landscape_this_week }} updates this week</span>
+                {% endif %}
+            </div>
+            <button hx-post="/intelligence/generate/landscape"
+                    hx-target="#landscape-gen-result"
+                    hx-swap="innerHTML"
+                    hx-indicator="#landscape-gen-spinner"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-mcc-accent/20 text-mcc-accent border border-mcc-accent/30 hover:bg-mcc-accent/30 transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Run Landscape Scan
+            </button>
+        </div>
+
+        <div id="landscape-gen-result"></div>
+        <div id="landscape-gen-spinner" class="htmx-indicator flex items-center gap-2 py-4">
+            <svg class="animate-spin w-4 h-4 text-mcc-accent" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <span class="text-xs text-mcc-muted">Scanning marketing landscape with AI...</span>
+        </div>
+
+        {% if landscape_items %}
+        <!-- Category filter pills -->
+        <div class="flex items-center gap-2">
+            <span class="text-[10px] text-mcc-dim">Filter:</span>
+            <button onclick="filterLandscape('all')" class="landscape-filter px-2 py-0.5 rounded text-[10px] font-medium bg-mcc-accent/15 text-mcc-accent" data-cat="all">All</button>
+            <button onclick="filterLandscape('competitor')" class="landscape-filter px-2 py-0.5 rounded text-[10px] font-medium bg-mcc-dim/30 text-mcc-muted hover:bg-mcc-dim/50" data-cat="competitor">Competitor</button>
+            <button onclick="filterLandscape('platform')" class="landscape-filter px-2 py-0.5 rounded text-[10px] font-medium bg-mcc-dim/30 text-mcc-muted hover:bg-mcc-dim/50" data-cat="platform">Platform</button>
+            <button onclick="filterLandscape('industry')" class="landscape-filter px-2 py-0.5 rounded text-[10px] font-medium bg-mcc-dim/30 text-mcc-muted hover:bg-mcc-dim/50" data-cat="industry">Industry</button>
+            <button onclick="filterLandscape('trend')" class="landscape-filter px-2 py-0.5 rounded text-[10px] font-medium bg-mcc-dim/30 text-mcc-muted hover:bg-mcc-dim/50" data-cat="trend">Trend</button>
+        </div>
+
+        <div class="space-y-2" id="landscape-feed">
+            {% for item in landscape_items %}
+            <div class="bg-mcc-card border border-mcc-border rounded-card p-4 landscape-item" id="intel-{{ item.id }}"
+                 data-category="{{ item.landscape_category.value if item.landscape_category else 'trend' }}">
+                <div class="flex items-start gap-3">
+                    <!-- Urgency indicator -->
+                    <div class="flex-shrink-0 mt-0.5">
+                        {% if item.urgency and item.urgency.value == 'act_now' %}
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-mcc-critical" style="box-shadow: 0 0 6px rgba(239,68,68,0.5)" title="Act Now"></span>
+                        {% elif item.urgency and item.urgency.value == 'act_this_week' %}
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-mcc-warning" style="box-shadow: 0 0 6px rgba(245,158,11,0.4)" title="Act This Week"></span>
+                        {% else %}
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-mcc-accent" title="Awareness"></span>
+                        {% endif %}
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-sm font-medium text-mcc-text">{{ item.title }}</span>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-medium
+                                {% if item.landscape_category and item.landscape_category.value == 'competitor' %}bg-red-500/10 text-red-400
+                                {% elif item.landscape_category and item.landscape_category.value == 'platform' %}bg-purple-500/10 text-purple-400
+                                {% elif item.landscape_category and item.landscape_category.value == 'industry' %}bg-blue-500/10 text-blue-400
+                                {% else %}bg-emerald-500/10 text-emerald-400{% endif %}">
+                                {{ item.landscape_category.value if item.landscape_category else 'trend' }}
+                            </span>
+                            {% if item.status.value == 'new' %}
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-mcc-accent/15 text-mcc-accent">New</span>
+                            {% endif %}
+                        </div>
+
+                        <p class="text-xs text-mcc-muted leading-relaxed mb-2">{{ item.body }}</p>
+
+                        {% if item.action_recommended %}
+                        <div class="text-xs mb-2">
+                            <span class="text-mcc-accent font-medium">Action:</span>
+                            <span class="text-mcc-text">{{ item.action_recommended }}</span>
+                        </div>
+                        {% endif %}
+
+                        <div class="flex items-center gap-2">
+                            {% if item.source_url %}
+                            <a href="{{ item.source_url }}" target="_blank" rel="noopener"
+                               class="text-[10px] text-mcc-accent hover:text-mcc-accent/80 transition-colors">Source &rarr;</a>
+                            {% endif %}
+
+                            {% if item.action_recommended and item.action_recommended.lower() != 'awareness only' %}
+                            <button hx-post="/intelligence/items/{{ item.id }}/add-task"
+                                    hx-target="#intel-{{ item.id }}"
+                                    hx-swap="outerHTML"
+                                    class="px-2 py-0.5 rounded text-[10px] font-medium bg-mcc-accent/15 text-mcc-accent hover:bg-mcc-accent/25 transition-colors">
+                                +Task
+                            </button>
+                            {% endif %}
+
+                            <button hx-post="/intelligence/items/{{ item.id }}/mark-seen"
+                                    hx-target="this"
+                                    hx-swap="outerHTML"
+                                    class="px-2 py-0.5 rounded text-[10px] font-medium bg-mcc-dim/30 text-mcc-muted hover:bg-mcc-dim/50 transition-colors">
+                                Mark Seen
+                            </button>
+
+                            <button hx-post="/intelligence/items/{{ item.id }}/dismiss"
+                                    hx-target="#intel-{{ item.id }}"
+                                    hx-swap="outerHTML"
+                                    hx-vals='{"reason": "Not relevant"}'
+                                    class="px-2 py-0.5 rounded text-[10px] font-medium text-mcc-dim hover:text-mcc-muted transition-colors ml-auto">
+                                Dismiss
+                            </button>
+
+                            <span class="text-[9px] text-mcc-dim">{{ item.created_at.strftime("%b %d") }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% elif not ai_configured %}
+        <div class="text-center py-12 text-mcc-muted">
+            <p class="text-sm">AI not configured</p>
+            <p class="text-xs mt-1">Set ANTHROPIC_API_KEY in .env to scan the landscape</p>
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-mcc-muted">
+            <svg class="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <p class="text-sm">No landscape data yet</p>
+            <p class="text-xs mt-1">Click "Run Landscape Scan" or wait for the weekly automated scan</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function filterLandscape(cat) {
+    var items = document.querySelectorAll('.landscape-item');
+    items.forEach(function(el) {
+        if (cat === 'all' || el.dataset.category === cat) {
+            el.style.display = '';
+        } else {
+            el.style.display = 'none';
+        }
+    });
+    // Update active pill
+    document.querySelectorAll('.landscape-filter').forEach(function(btn) {
+        if (btn.dataset.cat === cat) {
+            btn.className = 'landscape-filter px-2 py-0.5 rounded text-[10px] font-medium bg-mcc-accent/15 text-mcc-accent';
+        } else {
+            btn.className = 'landscape-filter px-2 py-0.5 rounded text-[10px] font-medium bg-mcc-dim/30 text-mcc-muted hover:bg-mcc-dim/50';
+        }
+    });
+}
+</script>
+{% endblock %}

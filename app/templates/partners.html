@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Partner Views{% endblock %}
+{% block page_title %}Partner Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    {% if not project %}
+    <div class="text-center py-12 text-mcc-muted">No project loaded</div>
+    {% else %}
+
+    <div class="grid grid-cols-3 gap-6">
+        <!-- Existing Partner Views -->
+        <div class="col-span-2 space-y-3">
+            {% if partner_views %}
+            {% for pv in partner_views %}
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-medium text-sm">{{ pv.name }}</h3>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] {% if pv.is_active %}bg-mcc-success/20 text-mcc-success{% else %}bg-mcc-muted/20 text-mcc-muted{% endif %}">
+                                {{ 'Active' if pv.is_active else 'Disabled' }}
+                            </span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] bg-mcc-secondary text-mcc-muted">{{ pv.preset }}</span>
+                        </div>
+                        {% if pv.banner_text %}
+                        <div class="text-[10px] text-mcc-muted mt-0.5">Banner: {{ pv.banner_text }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button hx-post="/partners/{{ pv.id }}/toggle" hx-swap="outerHTML"
+                                class="text-xs text-mcc-muted hover:text-mcc-text">
+                            {{ 'Disable' if pv.is_active else 'Enable' }}
+                        </button>
+                        <form method="post" action="/partners/{{ pv.id }}/delete"
+                              onsubmit="return confirm('Delete this partner view?')">
+                            <button type="submit" class="text-xs text-red-400 hover:text-red-300">Delete</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Share Link -->
+                <div class="flex items-center gap-2 bg-mcc-bg rounded p-2 mt-2">
+                    <span class="text-[10px] text-mcc-muted">Share link:</span>
+                    <code class="text-xs text-mcc-accent font-mono flex-1" id="link-{{ pv.id }}">{{ request.url.scheme }}://{{ request.url.netloc }}/partner/{{ pv.token }}</code>
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('link-{{ pv.id }}').textContent)"
+                            class="text-[10px] text-mcc-muted hover:text-mcc-text px-2 py-1 rounded border border-mcc-border">
+                        Copy
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-4 mt-2 text-[10px] text-mcc-muted">
+                    <span>Created: {{ pv.created_at.strftime('%b %d, %Y') }}</span>
+                    {% if pv.last_accessed %}
+                    <span>Last accessed: {{ pv.last_accessed.strftime('%b %d, %I:%M %p') }}</span>
+                    {% else %}
+                    <span>Never accessed</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="text-center py-12 text-mcc-muted text-sm">
+                No partner views created yet. Create one to share a read-only dashboard.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Create Partner View -->
+        <div>
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-4">
+                <h3 class="font-semibold text-sm mb-3">Create Partner View</h3>
+                <form method="post" action="/partners/create" class="space-y-3">
+                    <input type="text" name="name" placeholder="Partner name (e.g., Clint)" required class="mcc-input w-full text-xs">
+                    <select name="preset" class="mcc-select w-full text-xs">
+                        {% for key, preset in presets.items() %}
+                        <option value="{{ key }}">{{ preset.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="text" name="banner_text" placeholder="Custom banner text (optional)" class="mcc-input w-full text-xs">
+
+                    <!-- Preset descriptions -->
+                    <div class="space-y-1 pt-1">
+                        {% for key, preset in presets.items() %}
+                        <div class="text-[10px] text-mcc-muted">
+                            <span class="font-medium">{{ preset.label }}:</span>
+                            {{ preset.components|join(', ') }}
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <button type="submit" class="w-full px-3 py-2 rounded text-xs bg-mcc-accent text-white hover:bg-mcc-accent/80">
+                        Create View
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}

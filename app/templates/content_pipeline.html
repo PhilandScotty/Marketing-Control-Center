@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Content Pipeline{% endblock %}
+{% block page_title %}Content Pipeline{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<!-- Header: Filters + Stats -->
+<div class="flex items-center justify-between mb-4">
+    <form class="flex items-center gap-3" method="GET" action="/pipelines/content">
+        <select name="series" class="mcc-select text-xs" onchange="this.form.submit()">
+            <option value="">All Series</option>
+            {% for s in all_series %}
+            <option value="{{ s }}" {% if filter_series == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+        <select name="content_type" class="mcc-select text-xs" onchange="this.form.submit()">
+            <option value="">All Types</option>
+            {% for val, label in all_content_types %}
+            <option value="{{ val }}" {% if filter_type == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="assignee" class="mcc-select text-xs" onchange="this.form.submit()">
+            <option value="">All Assignees</option>
+            {% for a in all_assignees %}
+            <option value="{{ a }}" {% if filter_assignee == a %}selected{% endif %}>{{ a|capitalize }}</option>
+            {% endfor %}
+        </select>
+        {% if filter_series or filter_type or filter_assignee %}
+        <a href="/pipelines/content" class="text-[10px] text-mcc-accent hover:underline">Clear</a>
+        {% endif %}
+    </form>
+    <div class="flex items-center gap-4 text-xs">
+        <span class="text-mcc-muted">{{ total_pieces }} pieces</span>
+        <div class="bg-mcc-card rounded-lg border border-mcc-border px-3 py-1.5">
+            <span class="text-mcc-muted">This week:</span>
+            <span class="font-mono font-bold {% if published_this_week > 0 %}text-mcc-success{% else %}text-mcc-muted{% endif %}">
+                {{ published_this_week }} published
+            </span>
+        </div>
+        <button hx-post="/pipelines/content/prepare-next-week"
+                hx-target="#prep-result"
+                hx-swap="innerHTML"
+                hx-indicator="#prep-spinner"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-mcc-accent/15 text-mcc-accent border border-mcc-accent/30 hover:bg-mcc-accent/25 font-medium transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Prepare Next Week
+        </button>
+        <span id="prep-spinner" class="htmx-indicator text-[10px] text-mcc-muted">Generating...</span>
+        <span id="prep-result"></span>
+    </div>
+</div>
+
+<!-- Next Week Drafts Status -->
+{% if drafts_pending or drafts_approved %}
+<div class="bg-blue-500/5 border border-blue-500/20 rounded-card p-3 mb-4 flex items-center justify-between">
+    <div class="flex items-center gap-3 text-xs">
+        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span class="font-medium text-blue-400">Next week:</span>
+        {% if drafts_pending %}<span class="text-mcc-text">{{ drafts_pending }} drafts ready for review</span>{% endif %}
+        {% if drafts_approved %}<span class="text-mcc-success">{{ drafts_approved }} approved</span>{% endif %}
+    </div>
+    {% if drafts_pending %}
+    <a href="/queue" class="text-[11px] px-3 py-1 rounded-lg bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 font-medium transition-colors">
+        Review in Queue &rarr;
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Kanban Board -->
+<div class="flex gap-3 overflow-x-auto pb-4">
+    {% for status_val, label in column_defs %}
+    {% set col = columns[status_val] %}
+    <div class="flex-shrink-0 w-48 bg-mcc-card rounded-lg border border-mcc-border">
+        <div class="p-3 border-b border-mcc-border flex items-center justify-between">
+            <span class="text-xs font-semibold">{{ label }}</span>
+            <span class="text-[10px] text-mcc-muted font-mono">{{ col['pieces']|length }}</span>
+        </div>
+        <div class="p-2 space-y-2 min-h-[200px] content-kanban" data-status="{{ status_val }}">
+            {% for piece in col['pieces'] %}
+            <div class="bg-mcc-bg rounded-lg p-2.5 cursor-move content-card" data-id="{{ piece.id }}">
+                <div class="text-xs font-medium mb-1 line-clamp-2">{{ piece.title }}</div>
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-mcc-card text-mcc-muted">
+                        {{ piece.content_type.value.replace('_', ' ').title() }}
+                    </span>
+                    {% if piece.due_date %}
+                    <span class="text-[9px] text-mcc-muted font-mono">{{ piece.due_date.strftime('%b %d') }}</span>
+                    {% endif %}
+                </div>
+                {% if piece.series %}
+                <div class="text-[9px] text-mcc-accent mt-1">{{ piece.series }}</div>
+                {% endif %}
+                {% if piece.platform_target and piece.platform_target|length > 1 %}
+                <div class="flex gap-1 mt-1">
+                    {% for p in piece.platform_target %}
+                    <span class="text-[8px] px-1 py-0.5 rounded bg-mcc-accent/10 text-mcc-accent">{{ p }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="text-[9px] text-mcc-muted mt-1">{{ piece.assigned_to|capitalize }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Cross-Post Tracker -->
+{% if cross_posts %}
+<div class="mt-4 bg-mcc-card rounded-lg border border-mcc-border p-4">
+    <h3 class="text-sm font-semibold mb-3">Cross-Post Tracker</h3>
+    <div class="space-y-2">
+        {% for p in cross_posts %}
+        <div class="flex items-center justify-between text-xs py-1.5 border-b border-mcc-border/30 last:border-0">
+            <div>
+                <span class="font-medium">{{ p.title }}</span>
+                <span class="text-mcc-muted ml-2">{{ p.status.value.replace('_', ' ').title() }}</span>
+            </div>
+            <div class="flex gap-1">
+                {% for platform in p.platform_target %}
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-mcc-accent/10 text-mcc-accent">{{ platform }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Sortable.js for content kanban -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.content-kanban').forEach(function(col) {
+        new Sortable(col, {
+            group: 'content',
+            animation: 150,
+            ghostClass: 'kanban-ghost',
+            dragClass: 'kanban-drag',
+            onEnd: function(evt) {
+                var pieceId = evt.item.dataset.id;
+                var newStatus = evt.to.dataset.status;
+                fetch('/pipelines/content/move/' + pieceId, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'status=' + newStatus
+                });
+            }
+        });
+    });
+});
+</script>
+
+{% endif %}
+{% endblock %}

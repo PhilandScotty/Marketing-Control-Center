@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Project Wizard{% endblock %}
+{% block page_title %}New Project Wizard{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <!-- Steps Progress -->
+    <div class="flex items-center gap-1 mb-6">
+        {% for step in steps %}
+        <div class="flex items-center {% if not loop.last %}flex-1{% endif %}">
+            <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
+                    {% if step.step == current_step %}bg-mcc-accent text-white
+                    {% elif step.step < current_step %}bg-mcc-success/20 text-mcc-success
+                    {% else %}bg-mcc-border text-mcc-muted{% endif %}">
+                    {{ step.step }}
+                </div>
+                <span class="text-[10px] {% if step.step == current_step %}text-mcc-text{% else %}text-mcc-muted{% endif %} hidden lg:inline">
+                    {{ step.title }}
+                </span>
+            </div>
+            {% if not loop.last %}
+            <div class="flex-1 h-px bg-mcc-border mx-2"></div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Step Content -->
+    <div id="wizard-step-content"
+         hx-get="/wizard/step/1" hx-trigger="load" hx-swap="innerHTML">
+        <div class="text-center py-12 text-mcc-muted text-sm">Loading wizard...</div>
+    </div>
+
+    <!-- Template Section -->
+    <div class="bg-mcc-card border border-mcc-border rounded-lg p-5 mt-8">
+        <h3 class="font-semibold text-sm mb-3">Or Create from Template</h3>
+        <p class="text-xs text-mcc-muted mb-4">Clone an existing project's structure (channels, tools, automations, budget) into a new project.</p>
+        <form method="post" action="/wizard/create-from-template" class="grid grid-cols-2 gap-4">
+            <div class="space-y-3">
+                <select name="source_slug" class="mcc-select w-full text-xs">
+                    <option value="">Select template project...</option>
+                    <option value="grindlab">Grindlab</option>
+                </select>
+                <input type="text" name="name" placeholder="New project name" required class="mcc-input w-full text-xs">
+                <input type="text" name="slug" placeholder="Project slug (lowercase, no spaces)" required class="mcc-input w-full text-xs">
+            </div>
+            <div class="space-y-3">
+                <input type="date" name="launch_date" class="mcc-input w-full text-xs">
+                <input type="number" name="monthly_budget" placeholder="Monthly budget" step="0.01" class="mcc-input w-full text-xs">
+                <button type="submit" class="w-full px-3 py-2 rounded text-xs bg-mcc-secondary text-mcc-text hover:bg-mcc-secondary/80">
+                    Create from Template
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

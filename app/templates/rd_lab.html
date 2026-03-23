@@ -1,0 +1,1028 @@
+{% extends "base.html" %}
+{% block title %}R&D Lab{% endblock %}
+{% block page_title %}R&D Lab — Strategic Brain{% endblock %}
+
+{% block content %}
+<!-- Tab Navigation -->
+<div class="flex items-center gap-1 mb-4 border-b border-mcc-border pb-2 overflow-x-auto">
+    {% set tabs = [
+        ("brief", "Tonight's Brief"),
+        ("growth", "Growth Model"),
+        ("rate", "Rate Ideas"),
+        ("outcomes", "Outcomes"),
+        ("archive", "Idea Archive"),
+        ("reviews", "Reviews"),
+        ("intel", "Intelligence"),
+        ("settings", "Settings"),
+    ] %}
+    {% for tid, label in tabs %}
+    <a href="/rd-lab?tab={{ tid }}"
+       class="px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap
+              {% if tab == tid %}bg-mcc-accent/20 text-mcc-accent border border-mcc-accent/30{% else %}text-mcc-muted hover:text-mcc-text hover:bg-mcc-card{% endif %}">
+        {{ label }}
+        {% if tid == "rate" and unrated|length > 0 %}
+        <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-mcc-warning/20 text-mcc-warning">{{ unrated|length }}</span>
+        {% endif %}
+    </a>
+    {% endfor %}
+</div>
+
+<!-- ================================================================== -->
+<!-- TAB: TONIGHT'S BRIEF                                                -->
+<!-- ================================================================== -->
+{% if tab == "brief" %}
+<div class="space-y-4">
+    {% if not latest_run %}
+    <div class="bg-mcc-card rounded-card p-6 border border-mcc-border text-center">
+        <p class="text-mcc-muted text-sm">No pipeline runs yet. The nightly brain runs at 2:00 AM MST.</p>
+    </div>
+    {% else %}
+
+    <!-- Verdict Banner -->
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-accent/30">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-1">Run {{ latest_run.run_date }} &middot; {{ latest_run.mode or "explore" }} mode</div>
+        {% if latest_run.one_line_verdict %}
+        <p class="text-sm font-semibold text-mcc-text leading-relaxed">{{ latest_run.one_line_verdict }}</p>
+        {% endif %}
+        <div class="flex items-center gap-4 mt-2 text-[11px] text-mcc-muted">
+            <span>{{ latest_run.raw_ideas_count or 0 }} generated</span>
+            <span>&middot;</span>
+            <span>{{ latest_run.survived_challenge or 0 }} survived</span>
+            <span>&middot;</span>
+            <span>{{ latest_run.fusion_ideas_count or 0 }} fusions</span>
+            <span>&middot;</span>
+            <span>${{ "%.2f"|format(latest_run.total_cost_estimate or 0) }}</span>
+            {% if latest_run.run_duration_seconds %}
+            <span>&middot;</span>
+            <span>{{ "%.0f"|format(latest_run.run_duration_seconds) }}s</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Bottleneck + Diagnosis -->
+    {% if snapshot %}
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-2">Bottleneck Diagnosis</div>
+        {% if snapshot.bottleneck %}
+        <p class="text-sm font-medium text-mcc-warning mb-1">{{ snapshot.bottleneck }}</p>
+        {% endif %}
+        {% if snapshot.bottleneck_evidence %}
+        {% set evidence = snapshot.bottleneck_evidence %}
+        {% if evidence.startswith('[') %}
+        {% set ev_list = evidence|tojson|default('[]') %}
+        <ul class="text-xs text-mcc-muted space-y-0.5 mt-1">
+            {% for item in evidence[1:-1].split('", "') %}
+            <li class="flex items-start gap-1.5"><span class="text-mcc-dim mt-0.5">&#8226;</span><span>{{ item.strip('"[]') }}</span></li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-xs text-mcc-muted mt-1">{{ evidence }}</p>
+        {% endif %}
+        {% endif %}
+        {% if snapshot.focus_directive %}
+        <div class="mt-2 p-2 rounded bg-mcc-surface border border-mcc-border/50">
+            <span class="text-[10px] text-mcc-accent uppercase tracking-wider">Focus Directive</span>
+            <p class="text-xs mt-0.5">{{ snapshot.focus_directive }}</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- THE ONE THING -->
+    {% if the_one_thing %}
+    <div class="bg-mcc-card rounded-card p-4 border-2 border-mcc-accent/40">
+        <div class="flex items-center gap-2 mb-2">
+            <span class="text-[10px] uppercase tracking-wider font-semibold text-mcc-accent">The One Thing</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded" style="background: {{ area_colors.get(the_one_thing.area, '#6B6B8A') }}20; color: {{ area_colors.get(the_one_thing.area, '#6B6B8A') }}">{{ area_labels.get(the_one_thing.area, the_one_thing.area) }}</span>
+            <span class="text-[10px] text-mcc-dim font-mono">{{ the_one_thing.source_model }}</span>
+            {% if the_one_thing.is_fusion %}<span class="text-[10px] text-mcc-warning">fusion</span>{% endif %}
+        </div>
+        <h3 class="text-sm font-semibold mb-1">{{ the_one_thing.title }}</h3>
+        <p class="text-xs text-mcc-muted leading-relaxed">{{ the_one_thing.description }}</p>
+
+        {% if the_one_thing.execution_plan %}
+        <div class="mt-3 p-2 rounded bg-mcc-surface border border-mcc-border/50">
+            <span class="text-[10px] text-mcc-muted uppercase tracking-wider">Execution Plan</span>
+            <p class="text-xs mt-1 whitespace-pre-wrap leading-relaxed">{{ the_one_thing.execution_plan }}</p>
+        </div>
+        {% endif %}
+
+        {% if the_one_thing.creative_brief %}
+        <div class="mt-2 p-2 rounded bg-mcc-surface border border-mcc-border/50">
+            <span class="text-[10px] text-mcc-muted uppercase tracking-wider">Creative Brief</span>
+            <p class="text-xs mt-1 whitespace-pre-wrap leading-relaxed">{{ the_one_thing.creative_brief }}</p>
+        </div>
+        {% endif %}
+
+        <div class="flex items-center gap-2 mt-3">
+            {% if the_one_thing.phil_rating is none %}
+            <a href="/rd-lab?tab=rate" class="text-xs px-3 py-1 rounded bg-mcc-accent/20 text-mcc-accent hover:bg-mcc-accent/30 transition-colors">Rate this</a>
+            {% else %}
+            <span class="text-xs text-mcc-muted">Rated {{ the_one_thing.phil_rating }}/5</span>
+            {% endif %}
+            {% if the_one_thing.phil_rating and the_one_thing.phil_rating >= 4 %}
+            <button hx-post="/rd-lab/approve-task/{{ the_one_thing.id }}" hx-swap="outerHTML"
+                    class="text-xs px-3 py-1 rounded bg-mcc-success/20 text-mcc-success hover:bg-mcc-success/30 transition-colors">
+                Approve → Task
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Supporting Picks -->
+    {% if supporting %}
+    <div class="space-y-2">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted">Supporting Picks</div>
+        {% for idea in supporting %}
+        <div class="bg-mcc-card rounded-card border border-mcc-border hover:border-mcc-border-hover transition-colors">
+            <div class="p-3 cursor-pointer" hx-get="/rd-lab/idea/{{ idea.id }}" hx-target="#detail-{{ idea.id }}" hx-swap="innerHTML" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] text-mcc-dim font-mono">#{{ idea.run_rank }}</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded" style="background: {{ area_colors.get(idea.area, '#6B6B8A') }}20; color: {{ area_colors.get(idea.area, '#6B6B8A') }}">{{ area_labels.get(idea.area, idea.area) }}</span>
+                        <h4 class="text-xs font-medium">{{ idea.title }}</h4>
+                    </div>
+                    <span class="text-[10px] text-mcc-dim font-mono">{{ idea.source_model }}</span>
+                </div>
+                <p class="text-[11px] text-mcc-muted mt-1 line-clamp-2">{{ idea.description[:200] }}</p>
+            </div>
+            <div id="detail-{{ idea.id }}" class="hidden"></div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Self-Awareness Flags -->
+    {% if self_awareness and self_awareness != "low_data" %}
+    <div class="bg-mcc-warning/10 border border-mcc-warning/30 rounded-card p-3">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-warning mb-1">Self-Awareness Flag</div>
+        <p class="text-xs">{{ self_awareness }}</p>
+    </div>
+    {% endif %}
+
+    {% endif %}
+</div>
+
+<!-- ================================================================== -->
+<!-- TAB: GROWTH MODEL                                                   -->
+<!-- ================================================================== -->
+{% elif tab == "growth" %}
+<div class="space-y-4">
+    {% if not snapshot %}
+    <div class="bg-mcc-card rounded-card p-6 border border-mcc-border text-center">
+        <p class="text-mcc-muted text-sm">No growth snapshots yet. First snapshot generated on the next nightly run.</p>
+    </div>
+    {% else %}
+
+    <!-- Top Metrics Row -->
+    <div class="grid grid-cols-5 gap-3">
+        <div class="bg-mcc-card rounded-card p-3 border border-mcc-border">
+            <div class="text-[10px] text-mcc-muted uppercase tracking-wider">Subscribers</div>
+            <div class="text-xl font-bold mt-1">{{ snapshot.total_subscribers or 0 }}</div>
+            <div class="text-[10px] text-mcc-muted">/ 10,000 target</div>
+        </div>
+        <div class="bg-mcc-card rounded-card p-3 border border-mcc-border">
+            <div class="text-[10px] text-mcc-muted uppercase tracking-wider">Monthly Growth</div>
+            <div class="text-xl font-bold mt-1 {% if (snapshot.monthly_growth_rate or 0) > 0 %}text-mcc-success{% else %}text-mcc-muted{% endif %}">
+                {{ "%.1f"|format((snapshot.monthly_growth_rate or 0) * 100) }}%
+            </div>
+        </div>
+        <div class="bg-mcc-card rounded-card p-3 border border-mcc-border">
+            <div class="text-[10px] text-mcc-muted uppercase tracking-wider">10K Projected</div>
+            <div class="text-sm font-semibold mt-1">{{ snapshot.projected_10k_date or "insufficient data" }}</div>
+        </div>
+        <div class="bg-mcc-card rounded-card p-3 border border-mcc-border">
+            <div class="text-[10px] text-mcc-muted uppercase tracking-wider">Mode</div>
+            <div class="text-sm font-semibold mt-1 {% if snapshot.mode == 'explore' %}text-mcc-accent{% else %}text-mcc-success{% endif %}">
+                {{ (snapshot.mode or "explore")|upper }}
+            </div>
+        </div>
+        <div class="bg-mcc-card rounded-card p-3 border border-mcc-border">
+            <div class="text-[10px] text-mcc-muted uppercase tracking-wider">Unit Economics</div>
+            {% if snapshot.blended_cac and snapshot.estimated_ltv %}
+            <div class="text-sm font-semibold mt-1">CAC ${{ "%.0f"|format(snapshot.blended_cac) }} / LTV ${{ "%.0f"|format(snapshot.estimated_ltv) }}</div>
+            {% else %}
+            <div class="text-sm text-mcc-muted mt-1">{{ snapshot.unit_economics_flag or "insufficient data" }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Progress Bar to 10K -->
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="flex justify-between text-[10px] text-mcc-muted mb-1">
+            <span>Progress to 10,000</span>
+            <span>{{ "%.1f"|format((snapshot.total_subscribers or 0) / 100) }}%</span>
+        </div>
+        <div class="w-full bg-mcc-surface rounded-full h-2.5">
+            <div class="bg-mcc-accent h-2.5 rounded-full transition-all" style="width: {{ [(snapshot.total_subscribers or 0) / 100, 100]|min }}%"></div>
+        </div>
+    </div>
+
+    <!-- Channel Pace vs Target -->
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-3">Channel Pace vs Target</div>
+        <div class="space-y-3">
+            {% for ch_key, ch_data in channel_targets.items() %}
+            {% set pct = (ch_data.current_subscribers / ch_data.target_subscribers * 100) if ch_data.target_subscribers > 0 else 0 %}
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="font-medium">{{ ch_key|replace('_', ' ')|title }}</span>
+                    <span class="text-mcc-muted">{{ ch_data.current_subscribers }} / {{ ch_data.target_subscribers }}</span>
+                </div>
+                <div class="w-full bg-mcc-surface rounded-full h-1.5">
+                    <div class="h-1.5 rounded-full transition-all {% if pct >= 80 %}bg-mcc-success{% elif pct >= 40 %}bg-mcc-warning{% else %}bg-mcc-critical{% endif %}" style="width: {{ [pct, 100]|min }}%"></div>
+                </div>
+                {% if ch_data.current_monthly_pace > 0 %}
+                <div class="text-[10px] text-mcc-dim mt-0.5">{{ ch_data.current_monthly_pace }}/mo pace</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Funnel Visualization -->
+    {% if funnel_data %}
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-3">Funnel</div>
+        <div class="space-y-1">
+            {% for stage in funnel_data %}
+            {% set max_val = funnel_data[0].value if funnel_data[0].value > 0 else 1 %}
+            {% set bar_pct = (stage.value / max_val * 100) if max_val > 0 else 0 %}
+            <div class="flex items-center gap-3">
+                <span class="text-xs w-28 text-right text-mcc-muted">{{ stage.stage|replace('_', ' ')|title }}</span>
+                <div class="flex-1 bg-mcc-surface rounded h-5 relative overflow-hidden">
+                    <div class="h-full rounded bg-mcc-accent/40 transition-all" style="width: {{ [bar_pct, 100]|min }}%"></div>
+                    <span class="absolute inset-y-0 left-2 flex items-center text-[10px] font-mono">{{ stage.value }}</span>
+                </div>
+                {% if stage.conversion_rate is not none %}
+                <span class="text-[10px] text-mcc-muted w-12 text-right">{{ "%.1f"|format(stage.conversion_rate * 100) }}%</span>
+                {% else %}
+                <span class="w-12"></span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Historical Trajectory -->
+    {% if snapshot_history|length > 1 %}
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-3">Subscriber Trajectory</div>
+        <canvas id="trajectoryChart" height="120"></canvas>
+    </div>
+    <script>
+    new Chart(document.getElementById('trajectoryChart'), {
+        type: 'line',
+        data: {
+            labels: {{ snapshot_history|map(attribute='snapshot_date')|list|tojson }},
+            datasets: [{
+                label: 'Subscribers',
+                data: {{ snapshot_history|map(attribute='total_subscribers')|list|tojson }},
+                borderColor: '#06B6D4',
+                backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: '#6B6B8A', font: { size: 10 } }, grid: { color: '#1E1E3A' } },
+                y: { ticks: { color: '#6B6B8A', font: { size: 10 } }, grid: { color: '#1E1E3A' }, beginAtZero: true }
+            }
+        }
+    });
+    </script>
+    {% endif %}
+
+    {% endif %}
+</div>
+
+<!-- ================================================================== -->
+<!-- TAB: RATE IDEAS                                                     -->
+<!-- ================================================================== -->
+{% elif tab == "rate" %}
+<div class="space-y-3">
+    {% if not unrated %}
+    <div class="bg-mcc-card rounded-card p-6 border border-mcc-border text-center">
+        <p class="text-mcc-success text-sm font-medium">All caught up! No unrated ideas.</p>
+        <p class="text-mcc-muted text-xs mt-1">New ideas arrive after each nightly pipeline run.</p>
+    </div>
+    {% else %}
+    <div class="text-xs text-mcc-muted mb-2">{{ unrated|length }} idea{{ 's' if unrated|length != 1 }} awaiting review</div>
+
+    {% for idea in unrated %}
+    <div id="rate-card-{{ idea.id }}" class="bg-mcc-card rounded-card border border-mcc-border">
+        <!-- Header -->
+        <div class="p-3">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-[10px] px-1.5 py-0.5 rounded" style="background: {{ area_colors.get(idea.area, '#6B6B8A') }}20; color: {{ area_colors.get(idea.area, '#6B6B8A') }}">{{ area_labels.get(idea.area, idea.area) }}</span>
+                <span class="text-[10px] text-mcc-dim font-mono">{{ idea.source_model }}</span>
+                {% if idea.is_fusion %}<span class="text-[10px] text-mcc-warning">fusion</span>{% endif %}
+                {% if idea.run_rank %}<span class="text-[10px] text-mcc-dim">#{{ idea.run_rank }}</span>{% endif %}
+                <span class="text-[10px] text-mcc-dim">{{ idea.effort }} effort</span>
+            </div>
+            <h3 class="text-sm font-medium">{{ idea.title }}</h3>
+            <p class="text-xs text-mcc-muted mt-1 leading-relaxed">{{ idea.description }}</p>
+
+            {% if idea.bottleneck_context %}
+            <div class="text-[10px] text-mcc-accent mt-1">Addresses: {{ idea.bottleneck_context }}</div>
+            {% endif %}
+
+            <!-- Expandable detail -->
+            <button class="text-[10px] text-mcc-accent mt-1 hover:underline" onclick="document.getElementById('expand-{{ idea.id }}').classList.toggle('hidden')">Show detail</button>
+            <div id="expand-{{ idea.id }}" class="hidden mt-2 space-y-2">
+                {% if idea.hypothesis %}
+                <div><span class="text-[10px] text-mcc-muted uppercase">Hypothesis</span><p class="text-xs">{{ idea.hypothesis }}</p></div>
+                {% endif %}
+                {% if idea.execution_plan %}
+                <div><span class="text-[10px] text-mcc-muted uppercase">Execution Plan</span><p class="text-xs whitespace-pre-wrap">{{ idea.execution_plan }}</p></div>
+                {% endif %}
+                {% if idea.creative_brief %}
+                <div><span class="text-[10px] text-mcc-muted uppercase">Creative Brief</span><p class="text-xs whitespace-pre-wrap">{{ idea.creative_brief }}</p></div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Rating Form -->
+        <form hx-post="/rd-lab/rate/{{ idea.id }}" hx-target="#rate-card-{{ idea.id }}" hx-swap="outerHTML"
+              class="border-t border-mcc-border/50 p-3 space-y-2">
+
+            <!-- Star Rating -->
+            <div class="flex items-center gap-3">
+                <span class="text-[10px] text-mcc-muted w-16">Rating</span>
+                <div class="flex gap-1" id="stars-{{ idea.id }}">
+                    {% for s in range(1, 6) %}
+                    <label class="cursor-pointer">
+                        <input type="radio" name="phil_rating" value="{{ s }}" class="hidden peer" required>
+                        <span class="text-lg peer-checked:text-mcc-warning text-mcc-dim hover:text-mcc-warning/70 transition-colors">&#9733;</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Plan Quality -->
+            <div class="flex items-center gap-3">
+                <span class="text-[10px] text-mcc-muted w-16">Plan</span>
+                <div class="flex gap-1">
+                    {% for s in range(1, 6) %}
+                    <label class="cursor-pointer">
+                        <input type="radio" name="plan_quality" value="{{ s }}" class="hidden peer">
+                        <span class="text-sm peer-checked:text-mcc-accent text-mcc-dim hover:text-mcc-accent/70 transition-colors">{{ s }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Tags -->
+            <div>
+                <span class="text-[10px] text-mcc-muted">Tags</span>
+                <div class="flex flex-wrap gap-1 mt-1" id="tagbox-{{ idea.id }}">
+                    {% for t in rating_tags_positive %}
+                    <button type="button" onclick="toggleTag(this, 'tags-{{ idea.id }}')"
+                            class="tag-btn text-[10px] px-1.5 py-0.5 rounded border border-mcc-success/30 text-mcc-success/70 hover:bg-mcc-success/10 transition-colors"
+                            data-tag="{{ t }}">{{ t }}</button>
+                    {% endfor %}
+                    {% for t in rating_tags_negative %}
+                    <button type="button" onclick="toggleTag(this, 'tags-{{ idea.id }}')"
+                            class="tag-btn text-[10px] px-1.5 py-0.5 rounded border border-mcc-critical/30 text-mcc-critical/70 hover:bg-mcc-critical/10 transition-colors"
+                            data-tag="{{ t }}">{{ t }}</button>
+                    {% endfor %}
+                    {% for t in rating_tags_neutral %}
+                    <button type="button" onclick="toggleTag(this, 'tags-{{ idea.id }}')"
+                            class="tag-btn text-[10px] px-1.5 py-0.5 rounded border border-mcc-muted/30 text-mcc-muted/70 hover:bg-mcc-muted/10 transition-colors"
+                            data-tag="{{ t }}">{{ t }}</button>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="rating_tags" id="tags-{{ idea.id }}" value="">
+            </div>
+
+            <!-- Notes -->
+            <div>
+                <textarea name="phil_notes" rows="2" placeholder="Notes..."
+                          class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-2 text-mcc-text placeholder-mcc-dim focus:border-mcc-accent focus:outline-none resize-none"></textarea>
+            </div>
+
+            <button type="submit" class="text-xs px-4 py-1.5 rounded bg-mcc-accent/20 text-mcc-accent hover:bg-mcc-accent/30 border border-mcc-accent/30 transition-colors">
+                Submit Rating
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+
+<!-- ================================================================== -->
+<!-- TAB: OUTCOMES                                                       -->
+<!-- ================================================================== -->
+{% elif tab == "outcomes" %}
+<div class="space-y-4">
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-5 gap-3">
+        <div class="bg-mcc-card rounded-card p-3 border border-mcc-border">
+            <div class="text-[10px] text-mcc-muted uppercase">Experiments</div>
+            <div class="text-lg font-bold mt-1">{{ outcome_summary.total or 0 }}</div>
+        </div>
+        <div class="bg-mcc-card rounded-card p-3 border border-mcc-border">
+            <div class="text-[10px] text-mcc-muted uppercase">Win Rate</div>
+            <div class="text-lg font-bold mt-1 {% if outcome_summary.win_rate > 50 %}text-mcc-success{% elif outcome_summary.win_rate > 25 %}text-mcc-warning{% else %}text-mcc-muted{% endif %}">
+                {{ outcome_summary.win_rate }}%
+            </div>
+        </div>
+        <div class="bg-mcc-card rounded-card p-3 border border-mcc-border">
+            <div class="text-[10px] text-mcc-muted uppercase">Avg CAC</div>
+            <div class="text-lg font-bold mt-1">{{ "$%.0f"|format(outcome_summary.avg_cac) if outcome_summary.avg_cac else "—" }}</div>
+        </div>
+        <div class="bg-mcc-card rounded-card p-3 border border-mcc-border">
+            <div class="text-[10px] text-mcc-muted uppercase">Best CAC</div>
+            <div class="text-lg font-bold mt-1 text-mcc-success">{{ "$%.0f"|format(outcome_summary.best_cac) if outcome_summary.best_cac else "—" }}</div>
+        </div>
+        <div class="bg-mcc-card rounded-card p-3 border border-mcc-border">
+            <div class="text-[10px] text-mcc-muted uppercase">Worst CAC</div>
+            <div class="text-lg font-bold mt-1 text-mcc-critical">{{ "$%.0f"|format(outcome_summary.worst_cac) if outcome_summary.worst_cac else "—" }}</div>
+        </div>
+    </div>
+
+    <!-- Currently Testing -->
+    {% if testing %}
+    <div>
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-2">Currently Testing ({{ testing|length }})</div>
+        {% for idea in testing %}
+        <div class="bg-mcc-card rounded-card p-3 border border-mcc-border mb-2">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded" style="background: {{ area_colors.get(idea.area, '#6B6B8A') }}20; color: {{ area_colors.get(idea.area, '#6B6B8A') }}">{{ area_labels.get(idea.area, idea.area) }}</span>
+                    <h4 class="text-xs font-medium">{{ idea.title }}</h4>
+                </div>
+                {% set days_testing = ((today - idea.updated_at[:10]|default(today|string))|string).split()[0] if idea.updated_at else '?' %}
+                <span class="text-[10px] text-mcc-muted">Testing since {{ idea.updated_at[:10] if idea.updated_at else '?' }}</span>
+            </div>
+
+            {% if not idea.outcome_id %}
+            <!-- Outcome Entry Form -->
+            <form hx-post="/rd-lab/outcome/{{ idea.id }}" hx-swap="outerHTML" hx-target="closest div.bg-mcc-card"
+                  class="border-t border-mcc-border/50 pt-2 mt-2">
+                <div class="grid grid-cols-4 gap-2 mb-2">
+                    <div>
+                        <label class="text-[10px] text-mcc-muted">Trials</label>
+                        <input type="number" name="trials_generated" value="0" min="0"
+                               class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted">Paid</label>
+                        <input type="number" name="paid_conversions" value="0" min="0"
+                               class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted">Cost ($)</label>
+                        <input type="number" name="cost_dollars" value="0" min="0" step="0.01"
+                               class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted">Hours</label>
+                        <input type="number" name="time_invested_hours" value="0" min="0" step="0.5"
+                               class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mb-2">
+                    <div>
+                        <label class="text-[10px] text-mcc-muted">Rating (1-5)</label>
+                        <select name="outcome_rating" class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                            {% for v in range(1, 6) %}<option value="{{ v }}" {% if v == 3 %}selected{% endif %}>{{ v }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted">Repeat?</label>
+                        <select name="should_repeat" class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                            <option value="0">No</option><option value="1">Yes</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted">Channel</label>
+                        <input type="text" name="channel_attributed" placeholder="e.g. reddit, youtube"
+                               class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1 text-mcc-text placeholder-mcc-dim focus:border-mcc-accent focus:outline-none">
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <textarea name="lesson" rows="2" placeholder="What did you learn?" required
+                              class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-2 text-mcc-text placeholder-mcc-dim focus:border-mcc-accent focus:outline-none resize-none"></textarea>
+                </div>
+                <button type="submit" class="text-xs px-3 py-1 rounded bg-mcc-success/20 text-mcc-success hover:bg-mcc-success/30 border border-mcc-success/30 transition-colors">Record Outcome</button>
+            </form>
+            {% else %}
+            <span class="text-[10px] text-mcc-success">Outcome recorded</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Completed Outcomes -->
+    {% if completed_outcomes %}
+    <div>
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-2">Completed Outcomes</div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+                <thead>
+                    <tr class="text-[10px] text-mcc-muted uppercase border-b border-mcc-border">
+                        <th class="text-left py-2 px-2">Idea</th>
+                        <th class="text-left py-2 px-2">Area</th>
+                        <th class="text-right py-2 px-2">Trials</th>
+                        <th class="text-right py-2 px-2">Paid</th>
+                        <th class="text-right py-2 px-2">Cost</th>
+                        <th class="text-right py-2 px-2">CAC</th>
+                        <th class="text-center py-2 px-2">Rating</th>
+                        <th class="text-center py-2 px-2">Repeat</th>
+                        <th class="text-left py-2 px-2">Lesson</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in completed_outcomes %}
+                    <tr class="border-b border-mcc-border/30 hover:bg-mcc-card-hover">
+                        <td class="py-2 px-2 font-medium">{{ o.idea_title[:40] }}</td>
+                        <td class="py-2 px-2"><span class="text-[10px] px-1.5 py-0.5 rounded" style="background: {{ area_colors.get(o.area, '#6B6B8A') }}20; color: {{ area_colors.get(o.area, '#6B6B8A') }}">{{ o.area }}</span></td>
+                        <td class="py-2 px-2 text-right">{{ o.trials_generated }}</td>
+                        <td class="py-2 px-2 text-right">{{ o.paid_conversions }}</td>
+                        <td class="py-2 px-2 text-right">${{ "%.0f"|format(o.cost_dollars) }}</td>
+                        <td class="py-2 px-2 text-right">{{ "$%.0f"|format(o.cost_per_paid) if o.cost_per_paid else "—" }}</td>
+                        <td class="py-2 px-2 text-center">{{ o.outcome_rating }}/5</td>
+                        <td class="py-2 px-2 text-center">{% if o.should_repeat %}<span class="text-mcc-success">Yes</span>{% else %}<span class="text-mcc-dim">No</span>{% endif %}</td>
+                        <td class="py-2 px-2 text-mcc-muted">{{ o.lesson[:60] }}{{ '...' if o.lesson|length > 60 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% elif not testing %}
+    <div class="bg-mcc-card rounded-card p-6 border border-mcc-border text-center">
+        <p class="text-mcc-muted text-sm">No outcomes yet. Rate ideas 4-5 and approve them to start testing.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ================================================================== -->
+<!-- TAB: IDEA ARCHIVE                                                   -->
+<!-- ================================================================== -->
+{% elif tab == "archive" %}
+<div class="space-y-3">
+    <!-- Stats bar -->
+    <div class="flex items-center gap-4 text-[11px] text-mcc-muted">
+        <span>{{ all_ideas|length }} total ideas</span>
+        {% set by_status = {} %}
+        {% for idea in all_ideas %}{% if idea.status in by_status %}{% else %}{% set _ = by_status.update({idea.status: 0}) %}{% endif %}{% endfor %}
+        {% for idea in all_ideas %}{% set _ = by_status.update({idea.status: by_status[idea.status] + 1}) %}{% endfor %}
+        {% for s, c in by_status.items() %}
+        <span>{{ s }}: {{ c }}</span>
+        {% endfor %}
+    </div>
+
+    <!-- Filter + Search -->
+    <div class="flex items-center gap-2 flex-wrap">
+        <input type="text" id="archive-search" placeholder="Search ideas..."
+               class="text-xs bg-mcc-surface border border-mcc-border rounded px-3 py-1.5 text-mcc-text placeholder-mcc-dim focus:border-mcc-accent focus:outline-none w-64"
+               oninput="filterArchive()">
+        <select id="archive-status" class="text-xs bg-mcc-surface border border-mcc-border rounded px-2 py-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none" onchange="filterArchive()">
+            <option value="">All statuses</option>
+            {% for s in filter_statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        </select>
+        <select id="archive-area" class="text-xs bg-mcc-surface border border-mcc-border rounded px-2 py-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none" onchange="filterArchive()">
+            <option value="">All areas</option>
+            {% for a in filter_areas %}<option value="{{ a }}">{{ area_labels.get(a, a) }}</option>{% endfor %}
+        </select>
+        <select id="archive-model" class="text-xs bg-mcc-surface border border-mcc-border rounded px-2 py-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none" onchange="filterArchive()">
+            <option value="">All models</option>
+            {% for m in filter_models %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+        </select>
+        <select id="archive-rating" class="text-xs bg-mcc-surface border border-mcc-border rounded px-2 py-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none" onchange="filterArchive()">
+            <option value="">All ratings</option>
+            {% for r in range(1, 6) %}<option value="{{ r }}">{{ r }}★</option>{% endfor %}
+            <option value="unrated">Unrated</option>
+        </select>
+    </div>
+
+    <!-- Ideas Table -->
+    <div class="overflow-x-auto">
+        <table class="w-full text-xs" id="archive-table">
+            <thead>
+                <tr class="text-[10px] text-mcc-muted uppercase border-b border-mcc-border">
+                    <th class="text-left py-2 px-2">Title</th>
+                    <th class="text-left py-2 px-2">Area</th>
+                    <th class="text-left py-2 px-2">Model</th>
+                    <th class="text-center py-2 px-2">Rating</th>
+                    <th class="text-left py-2 px-2">Status</th>
+                    <th class="text-left py-2 px-2">Tags</th>
+                    <th class="text-left py-2 px-2">Date</th>
+                    <th class="text-left py-2 px-2">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for idea in all_ideas %}
+                <tr class="border-b border-mcc-border/30 hover:bg-mcc-card-hover archive-row"
+                    data-title="{{ idea.title|lower }}" data-desc="{{ idea.description[:100]|lower }}"
+                    data-status="{{ idea.status }}" data-area="{{ idea.area }}"
+                    data-model="{{ idea.source_model }}" data-rating="{{ idea.phil_rating or 'unrated' }}">
+                    <td class="py-2 px-2">
+                        <span class="font-medium cursor-pointer hover:text-mcc-accent" onclick="this.closest('tr').querySelector('.detail-row').classList.toggle('hidden')">{{ idea.title[:50] }}{{ '...' if idea.title|length > 50 }}</span>
+                    </td>
+                    <td class="py-2 px-2"><span class="text-[10px] px-1.5 py-0.5 rounded" style="background: {{ area_colors.get(idea.area, '#6B6B8A') }}20; color: {{ area_colors.get(idea.area, '#6B6B8A') }}">{{ idea.area }}</span></td>
+                    <td class="py-2 px-2 text-mcc-dim font-mono text-[10px]">{{ idea.source_model.split('/')[-1][:15] if idea.source_model else '—' }}</td>
+                    <td class="py-2 px-2 text-center">{% if idea.phil_rating %}<span class="text-mcc-warning">{{ idea.phil_rating }}★</span>{% else %}<span class="text-mcc-dim">—</span>{% endif %}</td>
+                    <td class="py-2 px-2">
+                        <span class="text-[10px] px-1.5 py-0.5 rounded
+                            {% if idea.status == 'testing' %}bg-mcc-accent/15 text-mcc-accent
+                            {% elif idea.status == 'completed' %}bg-mcc-success/15 text-mcc-success
+                            {% elif idea.status == 'discarded' %}bg-mcc-critical/15 text-mcc-critical
+                            {% else %}bg-mcc-surface text-mcc-muted{% endif %}">{{ idea.status }}</span>
+                    </td>
+                    <td class="py-2 px-2 text-[10px] text-mcc-dim">{{ idea.rating_tags[:30] if idea.rating_tags else '' }}</td>
+                    <td class="py-2 px-2 text-mcc-dim">{{ idea.created_at[:10] if idea.created_at else '' }}</td>
+                    <td class="py-2 px-2">
+                        {% if idea.phil_rating and idea.phil_rating >= 4 and idea.status not in ('testing', 'completed') %}
+                        <button hx-post="/rd-lab/approve-task/{{ idea.id }}" hx-swap="innerHTML" hx-target="this"
+                                class="text-[10px] px-2 py-0.5 rounded bg-mcc-success/20 text-mcc-success hover:bg-mcc-success/30 transition-colors">→ Task</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr class="detail-row hidden">
+                    <td colspan="8" class="px-4 py-2 bg-mcc-bg/50">
+                        <p class="text-xs text-mcc-muted leading-relaxed">{{ idea.description }}</p>
+                        {% if idea.phil_notes %}<p class="text-xs mt-1"><span class="text-mcc-accent">Notes:</span> {{ idea.phil_notes }}</p>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- TAB: STRATEGIC REVIEWS                                              -->
+<!-- ================================================================== -->
+{% elif tab == "reviews" %}
+<div class="space-y-4">
+    {% if not reviews %}
+    <div class="bg-mcc-card rounded-card p-6 border border-mcc-border text-center">
+        <p class="text-mcc-muted text-sm">No strategic reviews yet. First review generates on the 1st of next month.</p>
+    </div>
+    {% else %}
+    {% for review in reviews %}
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">{{ review.review_month }} Review</h3>
+            <span class="text-[10px] text-mcc-muted">{{ review.created_at[:10] if review.created_at else '' }}</span>
+        </div>
+
+        <div class="grid grid-cols-5 gap-3 mb-3">
+            <div>
+                <div class="text-[10px] text-mcc-muted uppercase">Experiments</div>
+                <div class="text-sm font-semibold">{{ review.experiments_completed or 0 }}</div>
+            </div>
+            <div>
+                <div class="text-[10px] text-mcc-muted uppercase">Total Trials</div>
+                <div class="text-sm font-semibold">{{ review.total_trials or 0 }}</div>
+            </div>
+            <div>
+                <div class="text-[10px] text-mcc-muted uppercase">Paid</div>
+                <div class="text-sm font-semibold">{{ review.total_paid or 0 }}</div>
+            </div>
+            <div>
+                <div class="text-[10px] text-mcc-muted uppercase">Spend</div>
+                <div class="text-sm font-semibold">${{ "%.0f"|format(review.total_spend or 0) }}</div>
+            </div>
+            <div>
+                <div class="text-[10px] text-mcc-muted uppercase">Blended CAC</div>
+                <div class="text-sm font-semibold">{{ "$%.0f"|format(review.blended_cac) if review.blended_cac else "—" }}</div>
+            </div>
+        </div>
+
+        {% if review.top_channel %}
+        <div class="text-xs mb-1"><span class="text-mcc-muted">Top Channel:</span> {{ review.top_channel }}</div>
+        {% endif %}
+
+        {% if review.revised_growth_theory %}
+        <div class="mt-2 p-2 rounded bg-mcc-surface border border-mcc-border/50">
+            <span class="text-[10px] text-mcc-muted uppercase tracking-wider">Growth Theory</span>
+            <p class="text-xs mt-1 whitespace-pre-wrap">{{ review.revised_growth_theory }}</p>
+        </div>
+        {% endif %}
+
+        {% if review.focus_recommendations %}
+        <div class="mt-2 p-2 rounded bg-mcc-surface border border-mcc-border/50">
+            <span class="text-[10px] text-mcc-accent uppercase tracking-wider">Focus Recommendations</span>
+            <p class="text-xs mt-1 whitespace-pre-wrap">{{ review.focus_recommendations }}</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+
+<!-- ================================================================== -->
+<!-- TAB: INTELLIGENCE (Model Performance + Taste Profile)               -->
+<!-- ================================================================== -->
+{% elif tab == "intel" %}
+<div class="space-y-4">
+    <!-- Model Performance -->
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-3">Model Performance</div>
+        {% if model_stats %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+                <thead>
+                    <tr class="text-[10px] text-mcc-muted uppercase border-b border-mcc-border">
+                        <th class="text-left py-2 px-2">Model</th>
+                        <th class="text-right py-2 px-2">Ideas</th>
+                        <th class="text-right py-2 px-2">Avg Rating</th>
+                        <th class="text-right py-2 px-2">High Rated</th>
+                        <th class="text-right py-2 px-2">Hit Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for model, stats in model_stats.items() %}
+                    {% if model != '_generated' %}
+                    <tr class="border-b border-mcc-border/30 hover:bg-mcc-card-hover">
+                        <td class="py-2 px-2 font-mono text-[11px]">{{ model }}</td>
+                        <td class="py-2 px-2 text-right">{{ stats.ideas_generated or 0 }}</td>
+                        <td class="py-2 px-2 text-right">{{ "%.1f"|format(stats.avg_rating) if stats.avg_rating else "—" }}</td>
+                        <td class="py-2 px-2 text-right">{{ stats.high_rated_count or 0 }}</td>
+                        <td class="py-2 px-2 text-right {% if (stats.hit_rate or 0) > 0.3 %}text-mcc-success{% elif (stats.hit_rate or 0) > 0.1 %}text-mcc-warning{% else %}text-mcc-dim{% endif %}">
+                            {{ "%.0f"|format((stats.hit_rate or 0) * 100) }}%
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if model_stats.get('_generated') %}
+        <div class="text-[10px] text-mcc-dim mt-2">Last updated: {{ model_stats._generated }}</div>
+        {% endif %}
+        {% else %}
+        <p class="text-xs text-mcc-muted">No model stats generated yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- Taste Profile -->
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-2">Current Taste Profile</div>
+        {% if taste_profile %}
+        <p class="text-xs whitespace-pre-wrap leading-relaxed">{{ taste_profile }}</p>
+        {% else %}
+        <p class="text-xs text-mcc-muted">No taste profile yet. Generates after you rate enough ideas.</p>
+        {% endif %}
+    </div>
+
+    <!-- Taste History -->
+    {% if taste_history %}
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-2">Taste Evolution</div>
+        <div class="space-y-3">
+            {% for entry in taste_history %}
+            <div class="border-l-2 border-mcc-accent/30 pl-3">
+                <div class="flex items-center gap-2 text-[10px] text-mcc-dim">
+                    <span>{{ entry.generated_date }}</span>
+                    <span>&middot;</span>
+                    <span>{{ entry.ideas_analyzed }} ideas analyzed</span>
+                </div>
+                <p class="text-xs mt-0.5 text-mcc-muted">{{ entry.profile_text[:200] }}{{ '...' if entry.profile_text|length > 200 }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ================================================================== -->
+<!-- TAB: SETTINGS                                                       -->
+<!-- ================================================================== -->
+{% elif tab == "settings" %}
+<div class="space-y-4">
+    <!-- This Week's Focus -->
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-2">This Week's Focus</div>
+        <form hx-post="/rd-lab/settings/focus" hx-swap="afterend" class="flex gap-2">
+            <input type="text" name="this_week_focus" value="{{ rd_metrics.get('this_week_focus', '') }}"
+                   class="flex-1 text-xs bg-mcc-surface border border-mcc-border rounded px-3 py-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+            <button type="submit" class="text-xs px-3 py-1.5 rounded bg-mcc-accent/20 text-mcc-accent hover:bg-mcc-accent/30 border border-mcc-accent/30 transition-colors">Save</button>
+        </form>
+    </div>
+
+    <!-- Metrics Update -->
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-2">Core Metrics</div>
+        {% set m = rd_metrics.get('metrics', {}) %}
+        <form hx-post="/rd-lab/settings/metrics" hx-swap="afterend">
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Kit Total</label>
+                    <input type="number" name="kit_total" value="{{ m.get('subscribers', {}).get('kit_total', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Weekly Growth</label>
+                    <input type="number" name="kit_weekly_growth" value="{{ m.get('subscribers', {}).get('kit_weekly_growth', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Active Trials</label>
+                    <input type="number" name="active_trials" value="{{ m.get('trials', {}).get('active_trials', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Trial Starts/wk</label>
+                    <input type="number" name="trial_starts_weekly" value="{{ m.get('trials', {}).get('trial_starts_weekly', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Paid Subscribers</label>
+                    <input type="number" name="total_paid_subscribers" value="{{ m.get('paid', {}).get('total_paid_subscribers', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">MRR ($)</label>
+                    <input type="number" name="mrr" value="{{ m.get('paid', {}).get('mrr', 0) }}" step="0.01"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+            </div>
+            <button type="submit" class="mt-3 text-xs px-3 py-1.5 rounded bg-mcc-accent/20 text-mcc-accent hover:bg-mcc-accent/30 border border-mcc-accent/30 transition-colors">Save Metrics</button>
+        </form>
+    </div>
+
+    <!-- Channel Targets -->
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-2">Growth Model — Channel Targets</div>
+        <form hx-post="/rd-lab/settings/channels" hx-swap="afterend">
+            <div class="space-y-2">
+                {% for ch_key, ch_data in channel_targets.items() %}
+                <div class="grid grid-cols-4 gap-2 items-end">
+                    <div>
+                        <label class="text-[10px] text-mcc-muted">{{ ch_key|replace('_', ' ')|title }}</label>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-dim">Target</label>
+                        <input type="number" name="{{ ch_key }}_target" value="{{ ch_data.target_subscribers }}"
+                               class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-dim">Current</label>
+                        <input type="number" name="{{ ch_key }}_current" value="{{ ch_data.current_subscribers }}"
+                               class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-dim">Pace/mo</label>
+                        <input type="number" name="{{ ch_key }}_pace" value="{{ ch_data.current_monthly_pace }}"
+                               class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="submit" class="mt-3 text-xs px-3 py-1.5 rounded bg-mcc-accent/20 text-mcc-accent hover:bg-mcc-accent/30 border border-mcc-accent/30 transition-colors">Save Targets</button>
+        </form>
+    </div>
+
+    <!-- Road Trip -->
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-2">Road Trip Status</div>
+        {% set rt = rd_metrics.get('road_trip', {}) %}
+        <form hx-post="/rd-lab/settings/road-trip" hx-swap="afterend">
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Current City</label>
+                    <input type="text" name="current_city" value="{{ rt.get('current_city') or '' }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Current Room</label>
+                    <input type="text" name="current_room" value="{{ rt.get('current_room') or '' }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Days at Current</label>
+                    <input type="number" name="days_at_current" value="{{ rt.get('days_at_current', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Next Stop</label>
+                    <input type="text" name="next_stop" value="{{ rt.get('next_stop', '') }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Next Stop Date</label>
+                    <input type="date" name="next_stop_date" value="{{ rt.get('next_stop_date', '') }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Rooms Visited</label>
+                    <input type="number" name="rooms_visited_total" value="{{ rt.get('rooms_visited_total', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Contacts Made</label>
+                    <input type="number" name="contacts_made_total" value="{{ rt.get('contacts_made_total', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div class="col-span-2">
+                    <label class="text-[10px] text-mcc-muted">Notes</label>
+                    <input type="text" name="notes" value="{{ rt.get('notes', '') }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+            </div>
+            <button type="submit" class="mt-3 text-xs px-3 py-1.5 rounded bg-mcc-accent/20 text-mcc-accent hover:bg-mcc-accent/30 border border-mcc-accent/30 transition-colors">Save Road Trip</button>
+        </form>
+    </div>
+
+    <!-- Outreach Pipeline -->
+    <div class="bg-mcc-card rounded-card p-4 border border-mcc-border">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-2">Outreach Pipeline</div>
+        {% set op = rd_metrics.get('outreach_pipeline', {}) %}
+        <form hx-post="/rd-lab/settings/outreach" hx-swap="afterend">
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Influencer Pitches</label>
+                    <input type="number" name="influencer_pitches_sent" value="{{ op.get('influencer_pitches_sent', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Influencer Responses</label>
+                    <input type="number" name="influencer_responses" value="{{ op.get('influencer_responses', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Influencer Deals</label>
+                    <input type="number" name="influencer_deals_closed" value="{{ op.get('influencer_deals_closed', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Coach Pitches</label>
+                    <input type="number" name="coach_pitches_sent" value="{{ op.get('coach_pitches_sent', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Coach Responses</label>
+                    <input type="number" name="coach_responses" value="{{ op.get('coach_responses', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted">Coach Deals</label>
+                    <input type="number" name="coach_deals_closed" value="{{ op.get('coach_deals_closed', 0) }}"
+                           class="w-full text-xs bg-mcc-surface border border-mcc-border rounded p-1.5 text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+            </div>
+            <button type="submit" class="mt-3 text-xs px-3 py-1.5 rounded bg-mcc-accent/20 text-mcc-accent hover:bg-mcc-accent/30 border border-mcc-accent/30 transition-colors">Save Outreach</button>
+        </form>
+    </div>
+
+    <!-- Data File Info -->
+    <div class="bg-mcc-card rounded-card p-3 border border-mcc-border">
+        <div class="text-[10px] text-mcc-dim">
+            <span>rd_metrics.json last updated: {{ rd_metrics.get('last_updated', '?') }}</span>
+            <span class="mx-2">&middot;</span>
+            <span>DB: {{ '~/clawd/projects/grindlab/rd_ideas.db' }}</span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ================================================================== -->
+<!-- JavaScript                                                          -->
+<!-- ================================================================== -->
+<script>
+function toggleTag(btn, inputId) {
+    btn.classList.toggle('ring-1');
+    btn.classList.toggle('ring-mcc-accent');
+    const input = document.getElementById(inputId);
+    const current = input.value ? input.value.split(',').filter(Boolean) : [];
+    const tag = btn.dataset.tag;
+    const idx = current.indexOf(tag);
+    if (idx >= 0) { current.splice(idx, 1); } else { current.push(tag); }
+    input.value = current.join(',');
+}
+
+function filterArchive() {
+    const search = document.getElementById('archive-search').value.toLowerCase();
+    const status = document.getElementById('archive-status').value;
+    const area = document.getElementById('archive-area').value;
+    const model = document.getElementById('archive-model').value;
+    const rating = document.getElementById('archive-rating').value;
+
+    document.querySelectorAll('.archive-row').forEach(row => {
+        const detailRow = row.nextElementSibling;
+        let show = true;
+        if (search && !(row.dataset.title.includes(search) || row.dataset.desc.includes(search))) show = false;
+        if (status && row.dataset.status !== status) show = false;
+        if (area && row.dataset.area !== area) show = false;
+        if (model && row.dataset.model !== model) show = false;
+        if (rating && row.dataset.rating !== rating) show = false;
+        row.style.display = show ? '' : 'none';
+        if (detailRow && detailRow.classList.contains('detail-row')) {
+            detailRow.style.display = show ? '' : 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

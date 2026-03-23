@@ -1,0 +1,549 @@
+{% extends "base.html" %}
+{% block title %}Outreach Pipeline{% endblock %}
+{% block page_title %}Outreach Pipeline{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<!-- Header: Filter + Stats + Actions -->
+<div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+        <form class="flex items-center gap-3" method="GET" action="/pipelines/outreach">
+            <select name="contact_type" class="mcc-select text-xs" onchange="this.form.submit()">
+                <option value="">All Types</option>
+                {% for val, label in all_contact_types %}
+                <option value="{{ val }}" {% if filter_type == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            {% if filter_type %}
+            <a href="/pipelines/outreach" class="text-[10px] text-mcc-accent hover:underline">Clear</a>
+            {% endif %}
+        </form>
+        <div class="relative">
+            <input type="text" id="outreach-search" placeholder="Search contacts..."
+                   class="mcc-input text-xs pl-7 pr-3 py-1.5 w-56"
+                   oninput="filterOutreachContacts(this.value)">
+            <svg class="w-3.5 h-3.5 text-mcc-muted absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+    </div>
+    <div class="flex items-center gap-3 text-xs">
+        <span class="text-mcc-muted">{{ total_contacts }} contacts</span>
+        {% if discovered_count %}
+        <span class="text-cyan-400">{{ discovered_count }} discovered</span>
+        {% endif %}
+        {% if overdue_followups %}
+        <span class="text-mcc-critical">{{ overdue_followups|length }} overdue</span>
+        {% endif %}
+        <button onclick="openDupSweep()" class="text-[10px] px-2 py-1 rounded border border-mcc-warning/50 text-mcc-warning hover:text-white hover:border-mcc-warning hover:bg-mcc-warning/10 transition-colors flex items-center gap-1" title="Scan all contacts for potential duplicates">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            Find Duplicates
+        </button>
+        <button onclick="openDiscoverModal()" class="text-[10px] px-2 py-1 rounded border border-cyan-500/50 text-cyan-400 hover:text-white hover:border-cyan-400 hover:bg-cyan-500/10 transition-colors flex items-center gap-1" title="Search for new outreach prospects matching your existing contacts">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            Discover Similar
+        </button>
+        <button onclick="openCsvImport()" class="text-[10px] px-2 py-1 rounded border border-mcc-border text-mcc-muted hover:text-white hover:border-mcc-accent transition-colors">
+            Import CSV
+        </button>
+        <button id="re-enrich-all-btn" onclick="reEnrichAll(event)" class="text-[10px] px-2 py-1 rounded border border-mcc-border text-mcc-muted hover:text-white hover:border-cyan-500 transition-colors flex items-center gap-1" title="Re-enrich all YouTube contacts. Hold Shift to force re-enrich even if audience size exists.">
+            <span class="text-xs leading-none">&#x1f504;</span> Re-Enrich All
+        </button>
+        <button onclick="openAddContact()" class="bg-mcc-accent text-white text-xs px-3 py-1.5 rounded hover:bg-mcc-accent/80 transition-colors flex items-center gap-1">
+            <span class="text-sm leading-none">+</span> Contact
+        </button>
+    </div>
+</div>
+
+<!-- Overdue Follow-ups Banner -->
+{% if overdue_followups %}
+<div class="bg-mcc-critical/5 border border-mcc-critical/30 rounded-lg p-3 mb-4">
+    <div class="text-xs font-semibold text-mcc-critical mb-2 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-mcc-critical animate-pulse"></span>
+        Overdue Follow-ups ({{ overdue_followups|length }})
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+        {% for c in overdue_followups %}
+        <div class="flex items-center justify-between text-xs bg-mcc-critical/5 rounded p-2">
+            <div>
+                <span class="font-medium">{{ c.name }}</span>
+                <span class="text-mcc-muted ml-1">{{ c.platform }}</span>
+            </div>
+            <span class="text-mcc-critical font-mono text-[10px]">
+                Due {{ c.next_follow_up.strftime('%b %d') }}
+                ({{ (today - c.next_follow_up).days }}d ago)
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Kanban Board -->
+<div class="flex gap-3 overflow-x-auto pb-4">
+    {% for status_val, label in column_defs %}
+    {% set col = columns[status_val] %}
+    <div class="flex-shrink-0 w-52 bg-mcc-card rounded-lg border border-mcc-border
+        {% if status_val == 'declined' %}opacity-60{% endif %}">
+        <div class="p-3 border-b border-mcc-border flex items-center justify-between">
+            <span class="text-xs font-semibold">{{ label }}</span>
+            <span class="text-[10px] text-mcc-muted font-mono">{{ col['contacts']|length }}</span>
+        </div>
+        <div class="p-2 space-y-2 min-h-[200px] outreach-kanban" data-status="{{ status_val }}">
+            {% set next_stages = {"identified":"contacted","contacted":"responded","responded":"in_conversation","in_conversation":"committed","committed":"active"} %}
+            {% for contact in col['contacts'] %}
+            <div class="bg-mcc-bg rounded-lg p-2.5 cursor-move outreach-card relative{% if contact.is_discovered %} border border-cyan-500/20{% endif %}" data-id="{{ contact.id }}" data-search="{{ (contact.name ~ ' ' ~ (contact.contact_email or '') ~ ' ' ~ contact.platform ~ ' ' ~ (contact.twitter_handle or '') ~ ' ' ~ (contact.instagram_handle or '') ~ ' ' ~ (contact.website_url or '') ~ ' ' ~ (contact.youtube_channel or '') ~ ' ' ~ (contact.notes or '') ~ ' ' ~ contact.contact_type.value)|lower }}" onclick="openEditContact({{ contact.id }})" style="cursor:pointer">
+                {% if contact.platform == 'YouTube' %}
+                <button class="enrich-btn absolute top-1 right-7 w-5 h-5 rounded flex items-center justify-center text-[10px] text-mcc-muted hover:text-mcc-accent hover:bg-mcc-card transition-colors"
+                    hx-post="/pipelines/outreach/enrich/{{ contact.id }}"
+                    hx-target="closest .outreach-card"
+                    hx-swap="outerHTML"
+                    onclick="event.stopPropagation()"
+                    title="Re-enrich from YouTube">
+                    &#x1f504;
+                </button>
+                {% endif %}
+                {% if status_val in next_stages %}
+                <button class="advance-btn absolute top-1 right-1 w-5 h-5 rounded flex items-center justify-center text-[10px] text-mcc-muted hover:text-mcc-accent hover:bg-mcc-card transition-colors"
+                    hx-post="/pipelines/outreach/advance/{{ contact.id }}"
+                    hx-target="closest .outreach-card"
+                    hx-swap="outerHTML"
+                    onclick="event.stopPropagation()"
+                    title="Move to {{ next_stages[status_val].replace('_',' ').title() }}">
+                    &rarr;
+                </button>
+                {% endif %}
+                <div class="text-xs font-medium mb-1">{{ contact.name }}</div>
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] text-mcc-muted">{{ contact.platform }}</span>
+                    {% if contact.audience_size %}
+                    <span class="text-[10px] font-mono text-mcc-muted">{{ "{:,}".format(contact.audience_size) }}</span>
+                    {% endif %}
+                </div>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-mcc-card text-mcc-muted">
+                    {{ contact.contact_type.value.replace('_', ' ').title() }}
+                </span>
+                {% if contact.is_discovered %}
+                <div class="flex items-center gap-1 mt-1.5 mb-1">
+                    <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 font-medium">
+                        Discovered{% if contact.discovered_at %} {{ contact.discovered_at.strftime('%b %d') }}{% endif %}
+                    </span>
+                    <button class="accept-btn text-[9px] px-1.5 py-0.5 rounded bg-mcc-success/15 text-mcc-success hover:bg-mcc-success/30 transition-colors"
+                        hx-post="/pipelines/outreach/accept/{{ contact.id }}"
+                        hx-target="closest .outreach-card"
+                        hx-swap="outerHTML"
+                        onclick="event.stopPropagation()"
+                        title="Keep this prospect">Keep</button>
+                    <button class="dismiss-btn text-[9px] px-1.5 py-0.5 rounded bg-mcc-critical/15 text-mcc-critical hover:bg-mcc-critical/30 transition-colors"
+                        hx-post="/pipelines/outreach/dismiss/{{ contact.id }}"
+                        hx-target="closest .outreach-card"
+                        hx-swap="outerHTML"
+                        onclick="event.stopPropagation()"
+                        title="Dismiss (won't resurface)">Dismiss</button>
+                </div>
+                {% endif %}
+                {% if contact.next_follow_up %}
+                <div class="text-[9px] mt-1 font-mono
+                    {% if contact.next_follow_up < today %}text-mcc-critical
+                    {% elif contact.next_follow_up == today %}text-mcc-warning
+                    {% else %}text-mcc-muted{% endif %}">
+                    Follow-up: {{ contact.next_follow_up.strftime('%b %d') }}
+                </div>
+                {% endif %}
+                {% if contact.notes %}
+                <div class="text-[9px] text-mcc-muted mt-1 truncate">{{ contact.notes }}</div>
+                {% endif %}
+                {% if not contact.contact_email %}
+                <div class="mt-1">
+                    <button class="find-email-btn text-[9px] px-1.5 py-0.5 rounded bg-mcc-card text-mcc-muted hover:text-mcc-accent hover:bg-mcc-card/80 transition-colors border border-mcc-border/50"
+                        hx-post="/pipelines/outreach/find-email/{{ contact.id }}"
+                        hx-target="closest .outreach-card .find-email-result"
+                        hx-swap="innerHTML"
+                        onclick="event.stopPropagation()"
+                        title="Search for contact email">Find Email</button>
+                    <div class="find-email-result mt-1"></div>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Discover Similar Modal -->
+<div id="discover-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center"
+     onclick="if(event.target===this)closeDiscoverModal()">
+    <div class="bg-mcc-card rounded-xl border border-cyan-500/30 w-full max-w-md max-h-[85vh] overflow-y-auto p-6 shadow-2xl"
+         onclick="event.stopPropagation()">
+        <div id="discover-modal-content">
+            <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                Discover Similar Prospects
+            </h3>
+            <p class="text-xs text-mcc-muted mb-4">
+                Analyzes your existing contacts and searches YouTube for similar poker creators
+                in the 1K-500K subscriber range. Results appear in the Identified column.
+            </p>
+            <div class="space-y-2 text-[10px] text-mcc-muted mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-mcc-success"></span>
+                    YouTube Data API search ({{ total_contacts }} existing contacts analyzed)
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-mcc-muted"></span>
+                    Twitter/X API (requires API key — skipped if not configured)
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-mcc-muted"></span>
+                    Podcast directories (coming soon)
+                </div>
+            </div>
+            <div id="discover-results"></div>
+            <div id="discover-buttons" class="flex gap-2">
+                <button onclick="runDiscovery()" class="flex-1 bg-cyan-500 text-white text-xs py-2 rounded hover:bg-cyan-400 transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    Refresh Suggestions
+                </button>
+                <button type="button" onclick="closeDiscoverModal()" class="flex-1 bg-mcc-card text-mcc-muted text-xs py-2 rounded border border-mcc-border hover:text-white transition-colors">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Duplicate Sweep Modal -->
+<div id="dup-sweep-backdrop" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center"
+     onclick="if(event.target===this)closeDupSweep()">
+    <div class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-3xl max-h-[85vh] overflow-y-auto p-6 shadow-2xl"
+         onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold">Duplicate Contact Scanner</h3>
+            <button onclick="closeDupSweep()" class="text-mcc-muted hover:text-mcc-text">&times;</button>
+        </div>
+        <div id="dup-sweep-content">
+            <div class="flex items-center justify-center gap-2 py-12 text-xs text-mcc-muted">
+                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                Scanning contacts...
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Modal (shared for Add, Edit, CSV Import) -->
+<div id="contact-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center"
+     onclick="if(event.target===this)closeContactModal()">
+    <div class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 shadow-2xl"
+         onclick="event.stopPropagation()">
+        <div id="contact-modal-content">
+        </div>
+    </div>
+</div>
+
+<!-- Sortable.js for outreach kanban -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.outreach-kanban').forEach(function(col) {
+        new Sortable(col, {
+            group: 'outreach',
+            animation: 150,
+            ghostClass: 'kanban-ghost',
+            dragClass: 'kanban-drag',
+            filter: '.advance-btn, .enrich-btn, .accept-btn, .dismiss-btn, .find-email-btn',
+            preventOnFilter: false,
+            onEnd: function(evt) {
+                var contactId = evt.item.dataset.id;
+                var newStatus = evt.to.dataset.status;
+                fetch('/pipelines/outreach/move/' + contactId, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'status=' + newStatus
+                });
+            }
+        });
+    });
+});
+
+function openContactModal() {
+    document.getElementById('contact-modal-backdrop').classList.remove('hidden');
+}
+function closeContactModal() {
+    document.getElementById('contact-modal-backdrop').classList.add('hidden');
+    document.getElementById('contact-modal-content').innerHTML = '';
+}
+
+function openDiscoverModal() {
+    document.getElementById('discover-modal-backdrop').classList.remove('hidden');
+}
+function closeDiscoverModal() {
+    document.getElementById('discover-modal-backdrop').classList.add('hidden');
+}
+
+function openDupSweep() {
+    document.getElementById('dup-sweep-backdrop').classList.remove('hidden');
+    htmx.ajax('GET', '/pipelines/outreach/find-duplicates', '#dup-sweep-content');
+}
+function closeDupSweep() {
+    document.getElementById('dup-sweep-backdrop').classList.add('hidden');
+}
+
+function filterOutreachContacts(query) {
+    var q = query.trim().toLowerCase();
+    var cards = document.querySelectorAll('.outreach-card');
+    cards.forEach(function(card) {
+        var searchData = card.getAttribute('data-search') || '';
+        card.style.display = (!q || searchData.indexOf(q) !== -1) ? '' : 'none';
+    });
+    // Update column counts
+    document.querySelectorAll('.outreach-kanban').forEach(function(col) {
+        var visible = col.querySelectorAll('.outreach-card:not([style*="display: none"])').length;
+        var counter = col.closest('.flex-shrink-0').querySelector('.font-mono');
+        if (counter) counter.textContent = visible;
+    });
+}
+
+var _discoverRunning = false;
+function runDiscovery() {
+    if (_discoverRunning) return;
+    _discoverRunning = true;
+    var btns = document.getElementById('discover-buttons');
+    var results = document.getElementById('discover-results');
+    btns.innerHTML = '<div class="flex items-center justify-center gap-2 py-2 text-xs text-cyan-400"><svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Searching YouTube... this may take 30-60 seconds</div>';
+
+    fetch('/pipelines/outreach/discover', { method: 'POST' })
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            results.innerHTML = html;
+            btns.innerHTML = '';
+            _discoverRunning = false;
+        })
+        .catch(function(e) {
+            results.innerHTML = '<div class="text-xs text-mcc-critical py-2">Discovery failed: ' + e.message + '</div>';
+            btns.innerHTML = '<button onclick="closeDiscoverModal()" class="w-full bg-mcc-card text-mcc-muted text-xs py-2 rounded border border-mcc-border hover:text-white">Close</button>';
+            _discoverRunning = false;
+        });
+}
+
+function openAddContact() {
+    document.getElementById('contact-modal-content').innerHTML = `
+    <h3 class="text-sm font-semibold mb-4">Add Contact</h3>
+    <form id="add-contact-form" hx-post="/pipelines/outreach/add" hx-target="#add-contact-form" hx-swap="innerHTML"
+        hx-on::before-request="showEnrichIndicator()"
+        hx-on::after-request="if(event.detail.successful){closeContactModal();location.reload();}else{hideEnrichIndicator();}">
+        <div class="space-y-3">
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Name *</label>
+                <input type="text" name="name" class="mcc-input w-full text-xs" required placeholder="e.g. Jonathan Little">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Platform *</label>
+                    <select name="platform" id="add-platform-select" class="mcc-select w-full text-xs" onchange="toggleEnrichHint()">
+                        <option value="YouTube">YouTube</option>
+                        <option value="Twitter/X">Twitter/X</option>
+                        <option value="Instagram">Instagram</option>
+                        <option value="TikTok">TikTok</option>
+                        <option value="Podcast">Podcast</option>
+                        <option value="LinkedIn">LinkedIn</option>
+                        <option value="Discord">Discord</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Type</label>
+                    <select name="contact_type" class="mcc-select w-full text-xs">
+                        <option value="influencer">Influencer</option>
+                        <option value="coach">Coach</option>
+                        <option value="ambassador_prospect">Entertainment</option>
+                        <option value="affiliate_prospect">Training Site</option>
+                        <option value="partnership">Community Operator</option>
+                    </select>
+                </div>
+            </div>
+            <div id="yt-channel-row" style="display:flex; flex-direction:column; gap:4px;">
+                <label class="text-xs text-mcc-muted block mb-1">YouTube Channel</label>
+                <input type="text" name="youtube_channel" class="mcc-input w-full text-xs" placeholder="@handle, channel URL, or channel ID">
+                <div class="text-[9px] text-cyan-400 flex items-center gap-1">
+                    <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM4 11a1 1 0 100-2H3a1 1 0 000 2h1zM10 18a1 1 0 001-1v-1a1 1 0 10-2 0v1a1 1 0 001 1z"/></svg>
+                    Auto-enriches subscriber count &amp; channel info. Leave blank to search by name.
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Audience Size</label>
+                    <input type="number" name="audience_size" class="mcc-input w-full text-xs" placeholder="e.g. 50000">
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Email</label>
+                    <input type="email" name="contact_email" class="mcc-input w-full text-xs" placeholder="contact@example.com">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Twitter/X</label>
+                    <input type="text" name="twitter_handle" class="mcc-input w-full text-xs" placeholder="@handle">
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Instagram</label>
+                    <input type="text" name="instagram_handle" class="mcc-input w-full text-xs" placeholder="@handle">
+                </div>
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Website</label>
+                <input type="text" name="website_url" class="mcc-input w-full text-xs" placeholder="https://...">
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Notes</label>
+                <textarea name="notes" rows="2" class="mcc-input w-full text-xs" placeholder="Description, notes, context..."></textarea>
+            </div>
+            <div id="enrich-indicator" class="hidden text-center py-2">
+                <div class="inline-flex items-center gap-2 text-xs text-cyan-400">
+                    <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                    Enriching from YouTube...
+                </div>
+            </div>
+            <div id="add-contact-buttons" class="flex gap-2 pt-2">
+                <button type="submit" class="flex-1 bg-mcc-accent text-white text-xs py-2 rounded hover:bg-mcc-accent/80 transition-colors">
+                    Add Contact
+                </button>
+                <button type="button" onclick="closeContactModal()" class="flex-1 bg-mcc-card text-mcc-muted text-xs py-2 rounded border border-mcc-border hover:text-white transition-colors">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </form>`;
+    openContactModal();
+    htmx.process(document.getElementById('add-contact-form'));
+    toggleEnrichHint();
+}
+
+function toggleEnrichHint() {
+    var sel = document.getElementById('add-platform-select');
+    var ytRow = document.getElementById('yt-channel-row');
+    if (sel && ytRow) {
+        ytRow.style.display = sel.value === 'YouTube' ? 'flex' : 'none';
+    }
+}
+
+function showEnrichIndicator() {
+    var sel = document.getElementById('add-platform-select');
+    var ind = document.getElementById('enrich-indicator');
+    var btns = document.getElementById('add-contact-buttons');
+    if (sel && sel.value === 'YouTube' && ind) {
+        ind.classList.remove('hidden');
+        if (btns) btns.classList.add('hidden');
+    }
+}
+
+function hideEnrichIndicator() {
+    var ind = document.getElementById('enrich-indicator');
+    var btns = document.getElementById('add-contact-buttons');
+    if (ind) ind.classList.add('hidden');
+    if (btns) btns.classList.remove('hidden');
+}
+
+function openEditContact(contactId) {
+    htmx.ajax('GET', '/pipelines/outreach/contact/' + contactId, '#contact-modal-content');
+    openContactModal();
+}
+
+var _csvFile = null;
+function openCsvImport() {
+    document.getElementById('contact-modal-content').innerHTML = `
+    <h3 class="text-sm font-semibold mb-4">Import Contacts from CSV</h3>
+    <div class="space-y-3">
+        <p class="text-xs text-mcc-muted">Upload a CSV with columns: name, platform, audience_size, type, email, twitter, instagram, website, notes</p>
+        <div>
+            <input type="file" id="csv-file-input" accept=".csv" class="mcc-input w-full text-xs py-2" onchange="previewCsv(this)">
+        </div>
+        <div id="csv-preview"></div>
+    </div>`;
+    openContactModal();
+}
+
+function previewCsv(input) {
+    if (!input.files[0]) return;
+    _csvFile = input.files[0];
+    var formData = new FormData();
+    formData.append('file', _csvFile);
+    fetch('/pipelines/outreach/import-preview', {method: 'POST', body: formData})
+        .then(r => r.text())
+        .then(html => { document.getElementById('csv-preview').innerHTML = html; });
+}
+
+function submitCsvImport() {
+    if (!_csvFile) return;
+    var formData = new FormData();
+    formData.append('file', _csvFile);
+    fetch('/pipelines/outreach/import-csv', {method: 'POST', body: formData})
+        .then(r => r.text())
+        .then(html => { document.getElementById('contact-modal-content').innerHTML = html; });
+}
+
+var _enrichAllRunning = false;
+async function reEnrichAll(evt) {
+    if (_enrichAllRunning) return;
+    var forceAll = evt && evt.shiftKey;
+    var btn = document.getElementById('re-enrich-all-btn');
+    var origHtml = btn.innerHTML;
+
+    _enrichAllRunning = true;
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Loading...';
+    btn.classList.add('text-cyan-400', 'border-cyan-500/50');
+
+    try {
+        var resp = await fetch('/pipelines/outreach/youtube-ids');
+        var contacts = await resp.json();
+
+        // Filter: skip contacts with audience_size unless force mode
+        var toEnrich = forceAll ? contacts : contacts.filter(function(c) { return !c.has_audience; });
+
+        if (toEnrich.length === 0) {
+            btn.innerHTML = '<span class="text-xs leading-none">&#x1f504;</span> Nothing to enrich';
+            setTimeout(function() { btn.innerHTML = origHtml; btn.disabled = false; btn.classList.remove('text-cyan-400', 'border-cyan-500/50'); _enrichAllRunning = false; }, 2000);
+            return;
+        }
+
+        var total = toEnrich.length;
+        for (var i = 0; i < total; i++) {
+            var c = toEnrich[i];
+            btn.innerHTML = '<svg class="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Enriching ' + (i + 1) + '/' + total + '...';
+
+            try {
+                var enrichResp = await fetch('/pipelines/outreach/enrich/' + c.id, { method: 'POST' });
+                if (enrichResp.ok) {
+                    var html = await enrichResp.text();
+                    // Find the card on the board and replace it
+                    var card = document.querySelector('.outreach-card[data-id="' + c.id + '"]');
+                    if (card) {
+                        card.outerHTML = html;
+                        // Re-process HTMX on the new card
+                        var newCard = document.querySelector('.outreach-card[data-id="' + c.id + '"]');
+                        if (newCard) htmx.process(newCard);
+                    }
+                }
+            } catch (e) {
+                // Skip failures silently, continue with next
+            }
+
+            // Rate limit: wait 1 second between calls (skip wait after last one)
+            if (i < total - 1) {
+                await new Promise(function(resolve) { setTimeout(resolve, 1000); });
+            }
+        }
+
+        btn.innerHTML = '<span class="text-xs leading-none">&#x2705;</span> Done (' + total + ' enriched)';
+        setTimeout(function() { btn.innerHTML = origHtml; btn.disabled = false; btn.classList.remove('text-cyan-400', 'border-cyan-500/50'); _enrichAllRunning = false; }, 3000);
+
+    } catch (e) {
+        btn.innerHTML = '<span class="text-xs leading-none text-mcc-critical">&#x274C;</span> Error';
+        setTimeout(function() { btn.innerHTML = origHtml; btn.disabled = false; btn.classList.remove('text-cyan-400', 'border-cyan-500/50'); _enrichAllRunning = false; }, 3000);
+    }
+}
+</script>
+
+{% endif %}
+{% endblock %}

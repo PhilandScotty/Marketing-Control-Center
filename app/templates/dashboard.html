@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<style>
+    @keyframes launch-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    .launch-glow {
+        text-shadow: 0 0 20px rgba(6,182,212,0.4), 0 0 40px rgba(6,182,212,0.15);
+        animation: launch-pulse 3s ease-in-out infinite;
+    }
+    .stat-card {
+        background: linear-gradient(135deg, rgba(22,22,46,0.8), rgba(16,16,34,0.6));
+        border: 1px solid rgba(30,30,58,0.6);
+        border-radius: 12px;
+        padding: 1.25rem 1rem;
+        text-align: center;
+        transition: border-color 0.2s, transform 0.15s;
+    }
+    .stat-card:hover {
+        border-color: rgba(6,182,212,0.3);
+        transform: translateY(-1px);
+    }
+    .attention-card {
+        background: rgba(22,22,46,0.5);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        border-left: 3px solid;
+        transition: background 0.15s;
+    }
+    .attention-card:hover { background: rgba(22,22,46,0.8); }
+    .attention-red { border-left-color: #EF4444; }
+    .attention-yellow { border-left-color: #F59E0B; }
+    .context-card {
+        background: linear-gradient(135deg, rgba(22,22,46,0.7), rgba(16,16,34,0.5));
+        border: 1px solid rgba(30,30,58,0.5);
+        border-radius: 12px;
+        padding: 1.25rem;
+    }
+    .channel-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 500;
+        transition: opacity 0.15s;
+        cursor: pointer;
+    }
+    .channel-pill:hover { opacity: 0.85; }
+    .pill-healthy { background: rgba(16,185,129,0.12); color: #10B981; border: 1px solid rgba(16,185,129,0.2); }
+    .pill-critical { background: rgba(239,68,68,0.12); color: #EF4444; border: 1px solid rgba(239,68,68,0.2); }
+    .pill-warning { background: rgba(245,158,11,0.12); color: #F59E0B; border: 1px solid rgba(245,158,11,0.2); }
+    .pill-unknown { background: rgba(58,58,90,0.3); color: #6B6B8A; border: 1px solid rgba(58,58,90,0.4); }
+    .budget-ring {
+        position: relative;
+        width: 48px;
+        height: 48px;
+    }
+    .budget-ring svg { transform: rotate(-90deg); }
+    .funnel-bar {
+        height: 8px;
+        border-radius: 4px;
+        background: rgba(30,30,58,0.5);
+        overflow: hidden;
+    }
+    .funnel-fill {
+        height: 100%;
+        border-radius: 4px;
+        background: linear-gradient(90deg, #06B6D4, #0891B2);
+        transition: width 0.5s ease;
+    }
+</style>
+
+<div class="space-y-8">
+
+    <!-- ===== ZONE 1: STATUS BAR ===== -->
+    {% if status_bar is defined and status_bar %}
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+
+        <!-- Email Subscribers -->
+        <a href="/channels" class="stat-card group">
+            <div class="text-3xl sm:text-4xl font-bold font-mono text-mcc-text group-hover:text-mcc-accent transition-colors leading-none">
+                {{ "{:,}".format(status_bar.email_subs) }}
+            </div>
+            <div class="text-[10px] text-mcc-muted uppercase tracking-widest mt-2">Email Subscribers</div>
+        </a>
+
+        <!-- Content This Week -->
+        <a href="/pipelines/content" class="stat-card group">
+            <div class="text-3xl sm:text-4xl font-bold font-mono leading-none transition-colors
+                {% if status_bar.content_this_week == 0 %}text-mcc-warning group-hover:text-mcc-warning/80
+                {% elif status_bar.content_this_week >= 3 %}text-mcc-success group-hover:text-mcc-success/80
+                {% else %}text-mcc-text group-hover:text-mcc-accent{% endif %}">
+                {{ status_bar.content_this_week }}
+            </div>
+            <div class="text-[10px] text-mcc-muted uppercase tracking-widest mt-2">Content This Week</div>
+        </a>
+
+        <!-- Outreach Pipeline -->
+        <a href="/pipelines/outreach" class="stat-card group">
+            <div class="text-3xl sm:text-4xl font-bold font-mono leading-none group-hover:text-mcc-accent transition-colors">
+                <span class="text-mcc-text">{{ status_bar.outreach_total }}</span>
+                <span class="text-xl text-mcc-dim font-normal mx-0.5">/</span>
+                <span class="{% if status_bar.outreach_contacted == 0 %}text-mcc-warning{% else %}text-mcc-accent{% endif %} text-2xl">{{ status_bar.outreach_contacted }}</span>
+            </div>
+            <div class="text-[10px] text-mcc-muted uppercase tracking-widest mt-2">Pipeline / Contacted</div>
+        </a>
+
+        <!-- Days to Launch -->
+        <a href="/roadmap" class="stat-card group col-span-2 sm:col-span-1" style="border-color: rgba(6,182,212,0.25);">
+            <div class="text-4xl sm:text-5xl font-bold font-mono leading-none text-mcc-accent launch-glow group-hover:text-white transition-colors">
+                {{ status_bar.days_to_launch }}
+            </div>
+            <div class="text-[10px] text-mcc-accent/70 uppercase tracking-widest mt-2 font-medium">Days to Launch</div>
+        </a>
+
+        <!-- Budget Burn -->
+        <a href="/budget" class="stat-card group">
+            <div class="flex items-center justify-center gap-3">
+                <!-- Circular progress -->
+                <div class="budget-ring flex-shrink-0">
+                    {% set pct = status_bar.budget_pct %}
+                    {% set circ = 125.6 %}
+                    {% set offset = circ - (circ * [pct, 100]|min / 100) %}
+                    {% set ring_color = '#EF4444' if pct > 80 else ('#F59E0B' if pct > 50 else '#10B981') %}
+                    <svg viewBox="0 0 48 48" width="48" height="48">
+                        <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(30,30,58,0.6)" stroke-width="3"/>
+                        <circle cx="24" cy="24" r="20" fill="none" stroke="{{ ring_color }}" stroke-width="3"
+                                stroke-dasharray="{{ circ }}" stroke-dashoffset="{{ offset }}"
+                                stroke-linecap="round" style="filter: drop-shadow(0 0 3px {{ ring_color }}40);"/>
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <span class="text-[10px] font-bold font-mono" style="color: {{ ring_color }}">{{ pct }}%</span>
+                    </div>
+                </div>
+                <div class="text-left">
+                    <div class="text-lg font-bold font-mono text-mcc-text leading-none group-hover:text-mcc-accent transition-colors">
+                        ${{ "{:,.0f}".format(status_bar.budget_spent) }}
+                    </div>
+                    <div class="text-[10px] text-mcc-dim font-mono mt-0.5">of ${{ "{:,.0f}".format(status_bar.budget_total) }}</div>
+                </div>
+            </div>
+            <div class="text-[10px] text-mcc-muted uppercase tracking-widest mt-2">Budget Burn</div>
+        </a>
+
+    </div>
+    {% endif %}
+
+    <!-- ===== ZONE 2: NEEDS ATTENTION ===== -->
+    <div>
+        {% if attention_items is defined and attention_items %}
+        <div class="space-y-2">
+            {% for item in attention_items %}
+            <div class="attention-card attention-{{ item.severity }} flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                    <!-- Icon by type -->
+                    {% if item.type == 'integration' %}
+                    <svg class="w-4 h-4 flex-shrink-0 {% if item.severity == 'red' %}text-mcc-critical{% else %}text-mcc-warning{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                    </svg>
+                    {% elif item.type == 'queue' %}
+                    <svg class="w-4 h-4 flex-shrink-0 text-mcc-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    {% elif item.type == 'content' %}
+                    <svg class="w-4 h-4 flex-shrink-0 text-mcc-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    {% elif item.type == 'outreach' %}
+                    <svg class="w-4 h-4 flex-shrink-0 text-mcc-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    {% elif item.type == 'task' %}
+                    <svg class="w-4 h-4 flex-shrink-0 {% if item.severity == 'red' %}text-mcc-critical{% else %}text-mcc-warning{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    {% else %}
+                    <svg class="w-4 h-4 flex-shrink-0 text-mcc-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    {% endif %}
+                    <span class="text-sm text-mcc-text">{{ item.text }}</span>
+                </div>
+                <a href="{{ item.action_url }}"
+                   class="flex-shrink-0 text-xs px-4 py-1.5 rounded-lg font-semibold transition-all
+                          {% if item.type in ['queue', 'content'] %}
+                          bg-mcc-accent/15 text-mcc-accent hover:bg-mcc-accent/25 border border-mcc-accent/20
+                          {% elif item.severity == 'red' %}
+                          bg-mcc-critical/10 text-mcc-critical hover:bg-mcc-critical/20 border border-mcc-critical/20
+                          {% else %}
+                          bg-mcc-warning/10 text-mcc-warning hover:bg-mcc-warning/20 border border-mcc-warning/20
+                          {% endif %}">
+                    {{ item.action_label }}
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="flex items-center justify-center gap-3 py-6">
+            <div class="w-8 h-8 rounded-full bg-mcc-success/10 flex items-center justify-center">
+                <svg class="w-4 h-4 text-mcc-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <span class="text-sm text-mcc-dim">All clear — nothing needs attention</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ===== ZONE 3: CONTEXT ===== -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        <!-- Column 1: Growth -->
+        <div class="context-card">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xs font-semibold uppercase tracking-widest text-mcc-muted">Growth</h3>
+                <a href="/channels" class="text-[11px] text-mcc-accent hover:text-mcc-accent/80 font-medium transition-colors">Details &rarr;</a>
+            </div>
+
+            {% if growth is defined %}
+            <!-- Sparkline -->
+            {% if growth.trend_data %}
+            <div class="mb-4 -mx-1">
+                <canvas id="sub-sparkline" height="60"></canvas>
+            </div>
+            {% else %}
+            <div class="mb-4 h-[60px] flex items-center justify-center rounded-lg bg-mcc-bg/30">
+                <span class="text-[10px] text-mcc-dim">Subscriber trend will appear here</span>
+            </div>
+            {% endif %}
+
+            <!-- Subscribers this week — mini card -->
+            <div class="bg-mcc-bg/40 rounded-lg p-3 mb-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] text-mcc-muted uppercase tracking-wide">This Week</span>
+                    {% if growth.weekly_growth > 0 %}
+                    <span class="text-[11px] text-mcc-success font-semibold flex items-center gap-0.5">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+                        {{ growth.weekly_growth }} from last week
+                    </span>
+                    {% elif growth.subs_last_week > 0 and growth.weekly_growth == 0 %}
+                    <span class="text-[11px] text-mcc-dim">flat vs last week</span>
+                    {% endif %}
+                </div>
+                <div class="text-2xl font-bold font-mono text-mcc-text mt-1">{{ "{:,}".format(growth.subs_this_week) }}</div>
+            </div>
+
+            <!-- Last week -->
+            <div class="flex items-center justify-between text-xs py-1.5">
+                <span class="text-mcc-muted">Last week</span>
+                <span class="font-mono text-mcc-dim">{{ "{:,}".format(growth.subs_last_week) }}</span>
+            </div>
+
+            <!-- Projected at launch -->
+            <div class="flex items-center justify-between text-xs py-2 mt-1 border-t border-mcc-border/20">
+                <span class="text-mcc-muted">Projected at launch</span>
+                {% if growth.projected_at_launch is not none %}
+                <span class="font-mono font-semibold text-mcc-accent">{{ "{:,}".format(growth.projected_at_launch) }}</span>
+                {% else %}
+                <span class="font-mono text-mcc-dim">&mdash;</span>
+                {% endif %}
+            </div>
+            {% else %}
+            <p class="text-xs text-mcc-dim py-4 text-center">No growth data yet</p>
+            {% endif %}
+        </div>
+
+        <!-- Column 2: Content & Channels -->
+        <div class="context-card">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xs font-semibold uppercase tracking-widest text-mcc-muted">Content & Channels</h3>
+                <a href="/pipelines/content" class="text-[11px] text-mcc-accent hover:text-mcc-accent/80 font-medium transition-colors">Pipeline &rarr;</a>
+            </div>
+
+            {% if content_channels is defined %}
+            <!-- Published this week -->
+            {% if content_channels.by_platform %}
+            <div class="mb-3">
+                <div class="text-[10px] text-mcc-dim uppercase tracking-wide mb-2">Published This Week</div>
+                {% for platform, count in content_channels.by_platform.items() %}
+                <div class="flex items-center justify-between py-1.5 text-xs">
+                    <span class="text-mcc-muted">{{ platform }}</span>
+                    <span class="font-mono font-semibold text-mcc-text">{{ count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-xs text-mcc-dim mb-3 py-1">No content published this week</div>
+            {% endif %}
+
+            <!-- Buffer queue -->
+            <div class="flex items-center justify-between py-2 text-xs border-t border-mcc-border/20">
+                <span class="text-mcc-muted">Buffer queue</span>
+                <span class="font-mono font-medium {% if content_channels.queue_posts == 0 %}text-mcc-warning{% else %}text-mcc-text{% endif %}">
+                    {{ content_channels.queue_posts }} posts{% if content_channels.queue_days > 0 %} <span class="text-mcc-dim">(~{{ content_channels.queue_days }}d)</span>{% endif %}
+                </span>
+            </div>
+
+            <!-- Channel pills -->
+            {% if content_channels.channels %}
+            <div class="mt-3 pt-3 border-t border-mcc-border/20">
+                <div class="text-[10px] text-mcc-dim uppercase tracking-wide mb-2">Channels</div>
+                <div class="flex flex-wrap gap-1.5">
+                    {% for ch in content_channels.channels %}
+                    <a href="/channels" class="channel-pill pill-{{ ch.dot }}">
+                        <span class="w-1.5 h-1.5 rounded-full
+                            {% if ch.dot == 'healthy' %}bg-mcc-success
+                            {% elif ch.dot == 'warning' %}bg-mcc-warning
+                            {% elif ch.dot == 'critical' %}bg-mcc-critical
+                            {% else %}bg-mcc-dim{% endif %}"></span>
+                        {{ ch.name }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% else %}
+            <p class="text-xs text-mcc-dim py-4 text-center">No channel data</p>
+            {% endif %}
+        </div>
+
+        <!-- Column 3: Outreach & Budget -->
+        <div class="context-card">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xs font-semibold uppercase tracking-widest text-mcc-muted">Outreach & Budget</h3>
+                <a href="/pipelines/outreach" class="text-[11px] text-mcc-accent hover:text-mcc-accent/80 font-medium transition-colors">Pipeline &rarr;</a>
+            </div>
+
+            {% if outreach_budget is defined %}
+            <!-- Pipeline funnel -->
+            <div class="mb-4">
+                <div class="text-[10px] text-mcc-dim uppercase tracking-wide mb-2">Pipeline Funnel</div>
+                {% for stage in outreach_budget.funnel %}
+                <div class="mb-2">
+                    <div class="flex items-center justify-between text-xs mb-1">
+                        <span class="text-mcc-muted">{{ stage.label }}</span>
+                        <span class="font-mono font-semibold text-mcc-text">{{ stage.count }}</span>
+                    </div>
+                    <div class="funnel-bar">
+                        <div class="funnel-fill" style="width: {{ [stage.pct, 2]|max if stage.count > 0 else 0 }}%"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Budget -->
+            <div class="pt-3 border-t border-mcc-border/20">
+                <div class="flex items-center justify-between text-xs mb-2">
+                    <span class="text-mcc-muted">Monthly spend</span>
+                    <span class="font-mono font-medium text-mcc-text">
+                        ${{ "{:,.0f}".format(outreach_budget.budget_spent) }}
+                        <span class="text-mcc-dim">/ ${{ "{:,.0f}".format(outreach_budget.budget_total) }}</span>
+                    </span>
+                </div>
+                {% set bpct = outreach_budget.budget_pct %}
+                <div class="w-full bg-mcc-border/20 rounded-full h-2.5 mb-3 relative">
+                    <div class="h-2.5 rounded-full transition-all
+                        {% if bpct > 80 %}bg-mcc-critical{% elif bpct > 50 %}bg-mcc-warning{% else %}bg-mcc-success{% endif %}"
+                         style="width: {{ [bpct, 100]|min }}%; {% if bpct > 0 %}box-shadow: 0 0 8px {% if bpct > 80 %}rgba(239,68,68,0.3){% elif bpct > 50 %}rgba(245,158,11,0.3){% else %}rgba(16,185,129,0.3){% endif %};{% endif %}"></div>
+                </div>
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-mcc-muted">Daily burn</span>
+                    <span class="font-mono text-mcc-dim">${{ "{:,.0f}".format(outreach_budget.daily_burn) }}/d</span>
+                </div>
+            </div>
+
+            <!-- Next milestone -->
+            <div class="mt-4 pt-3 border-t border-mcc-border/20">
+                <div class="bg-mcc-accent/8 border border-mcc-accent/15 rounded-lg px-3 py-2.5 flex items-center justify-between">
+                    <span class="text-[10px] text-mcc-muted uppercase tracking-wide">Next Milestone</span>
+                    <span class="text-sm text-mcc-accent font-semibold">{{ outreach_budget.next_milestone }}</span>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-xs text-mcc-dim py-4 text-center">No outreach data</p>
+            {% endif %}
+        </div>
+
+    </div>
+
+</div>
+
+{% if growth is defined and growth.trend_data %}
+<script>
+(function() {
+    const data = {{ growth.trend_data | tojson }};
+    if (!data.length) return;
+    const canvas = document.getElementById('sub-sparkline');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 60);
+    gradient.addColorStop(0, 'rgba(6,182,212,0.15)');
+    gradient.addColorStop(1, 'rgba(6,182,212,0)');
+    new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: data.map(d => d.date),
+            datasets: [{
+                data: data.map(d => d.count),
+                borderColor: '#06B6D4',
+                backgroundColor: gradient,
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                pointHoverBackgroundColor: '#06B6D4',
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2,
+                pointHitRadius: 12,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    mode: 'index',
+                    backgroundColor: '#16162E',
+                    titleColor: '#E8E8F0',
+                    bodyColor: '#6B6B8A',
+                    borderColor: 'rgba(30,30,58,0.8)',
+                    borderWidth: 1,
+                    padding: 8,
+                    displayColors: false,
+                    titleFont: { family: 'JetBrains Mono', size: 11 },
+                    bodyFont: { family: 'Inter', size: 11 },
+                }
+            },
+            scales: {
+                x: { display: false },
+                y: { display: false, beginAtZero: false }
+            },
+            interaction: { intersect: false, mode: 'index' },
+        }
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

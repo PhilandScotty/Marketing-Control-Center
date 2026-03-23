@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Email Sequences{% endblock %}
+{% block page_title %}Email Sequences{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold">{{ sequences|length }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Total Sequences</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold text-mcc-success">{{ live_count }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Live</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold">{{ total_emails }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Total Emails</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold">{% if avg_open %}{{ avg_open }}%{% else %}--{% endif %}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Avg Open Rate</div>
+    </div>
+</div>
+
+<!-- Pipeline Status View -->
+<div class="bg-mcc-card rounded-lg border border-mcc-border p-4 mb-6">
+    <h3 class="text-sm font-semibold mb-3">Pipeline Status</h3>
+    <div class="flex gap-2">
+        {% for status_val, items in by_status.items() %}
+        <div class="flex-1 bg-mcc-bg rounded-lg p-3">
+            <div class="text-[10px] text-mcc-muted uppercase tracking-wide mb-2 flex items-center justify-between">
+                <span>{{ status_val.replace('_', ' ').title() }}</span>
+                <span class="font-mono">{{ items|length }}</span>
+            </div>
+            <div class="space-y-1.5">
+                {% for seq in items %}
+                <div class="bg-mcc-card rounded px-2 py-1.5 text-xs">
+                    <div class="font-medium truncate">{{ seq.name }}</div>
+                    <div class="text-[10px] text-mcc-muted">{{ seq.email_count }} emails</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Detailed Sequence Cards -->
+<div class="space-y-3">
+    {% for seq in sequences %}
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+        <div class="flex items-start justify-between">
+            <div class="flex-1">
+                <div class="flex items-center gap-3 mb-2">
+                    <h4 class="text-sm font-semibold">{{ seq.name }}</h4>
+                    <span class="text-[10px] px-2 py-0.5 rounded
+                        {% if seq.status.value == 'live' %}bg-mcc-success/15 text-mcc-success
+                        {% elif seq.status.value == 'draft' %}bg-mcc-bg text-mcc-muted
+                        {% elif seq.status.value == 'needs_copy' or seq.status.value == 'needs_build' %}bg-mcc-warning/15 text-mcc-warning
+                        {% elif seq.status.value == 'paused' %}bg-mcc-critical/15 text-mcc-critical
+                        {% else %}bg-mcc-bg text-mcc-muted{% endif %}">
+                        {{ seq.status.value.replace('_', ' ').title() }}
+                    </span>
+                </div>
+                <div class="grid grid-cols-6 gap-4 text-xs">
+                    <div>
+                        <div class="text-[10px] text-mcc-muted uppercase">Type</div>
+                        <div>{{ seq.sequence_type.value.replace('_', ' ').title() }}</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-mcc-muted uppercase">Platform</div>
+                        <div>{{ seq.platform or '--' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-mcc-muted uppercase">Emails</div>
+                        <div class="font-mono">{{ seq.email_count }}</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-mcc-muted uppercase">Open Rate</div>
+                        <div class="font-mono">{% if seq.open_rate %}{{ seq.open_rate }}%{% else %}--{% endif %}</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-mcc-muted uppercase">Click Rate</div>
+                        <div class="font-mono">{% if seq.click_rate %}{{ seq.click_rate }}%{% else %}--{% endif %}</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-mcc-muted uppercase">Active Subs</div>
+                        <div class="font-mono">{% if seq.subscribers_active %}{{ seq.subscribers_active }}{% else %}--{% endif %}</div>
+                    </div>
+                </div>
+                {% if seq.trigger %}
+                <div class="mt-2 text-xs">
+                    <span class="text-mcc-muted">Trigger:</span>
+                    <span class="text-mcc-accent">{{ seq.trigger }}</span>
+                </div>
+                {% endif %}
+                {% if seq.notes %}
+                <div class="mt-1 text-[10px] text-mcc-muted">{{ seq.notes }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not sequences %}
+<div class="text-center py-16 text-mcc-muted text-sm">No email sequences configured yet.</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

@@ -1,0 +1,115 @@
+<div class="space-y-5 animate-fadeIn">
+    <div class="flex items-center justify-between">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+            <svg class="w-4 h-4 text-mcc-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Prepare {{ platform_label }} Campaign
+        </h3>
+        <button onclick="document.getElementById('prepare-panel').innerHTML=''" class="text-mcc-muted hover:text-mcc-text text-xs transition-colors">Close</button>
+    </div>
+
+    <!-- Top Organic Posts -->
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+        <h4 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider mb-3">Top Organic Content (Creative Candidates)</h4>
+        {% if top_posts %}
+        <div class="space-y-2">
+            {% for post in top_posts %}
+            <div class="bg-mcc-bg rounded-lg p-3 flex items-center justify-between">
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-medium truncate">
+                        {% if post.get('is_content') %}{{ post.title }}{% else %}{{ post.metric.replace("_", " ").title() }}{% endif %}
+                    </div>
+                    <div class="text-[10px] text-mcc-muted">{{ post.channel }} · {{ post.date }}</div>
+                    {% if post.get('script') %}
+                    <div class="text-[10px] text-mcc-dim mt-1 line-clamp-2">{{ post.script[:120] }}</div>
+                    {% endif %}
+                </div>
+                <div class="text-right flex-shrink-0 ml-3">
+                    <div class="text-xs font-mono font-bold">{{ "{:,.0f}".format(post.value) }}</div>
+                    <div class="text-[9px] text-mcc-muted">{{ post.unit }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-xs text-mcc-muted py-3 text-center">No organic data available for {{ platform_label }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Customer Profile Reference -->
+    {% if customer_profile %}
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+        <h4 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider mb-2">Customer Profile (Targeting Reference)</h4>
+        <div class="text-xs text-mcc-text leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">{{ customer_profile[:500] }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Budget Available -->
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+        <h4 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider mb-2">Available Budget (Paid Advertising)</h4>
+        <div class="grid grid-cols-3 gap-3">
+            <div class="bg-mcc-bg rounded-lg p-2 text-center">
+                <div class="text-sm font-mono font-bold">${{ "%.0f"|format(ad_budget.budgeted) }}</div>
+                <div class="text-[9px] text-mcc-muted">Budgeted</div>
+            </div>
+            <div class="bg-mcc-bg rounded-lg p-2 text-center">
+                <div class="text-sm font-mono font-bold">${{ "%.0f"|format(ad_budget.spent) }}</div>
+                <div class="text-[9px] text-mcc-muted">Spent</div>
+            </div>
+            <div class="bg-mcc-bg rounded-lg p-2 text-center">
+                <div class="text-sm font-mono font-bold {% if ad_budget.available > 0 %}text-mcc-success{% else %}text-mcc-critical{% endif %}">${{ "%.0f"|format(ad_budget.available) }}</div>
+                <div class="text-[9px] text-mcc-muted">Available</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campaign Brief Form -->
+    <form hx-post="/ads/brief/save" hx-target="#brief-result" hx-swap="innerHTML" class="bg-mcc-card rounded-lg border border-mcc-border p-4 space-y-4">
+        <h4 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider">Campaign Brief</h4>
+        <input type="hidden" name="platform" value="{{ platform }}">
+
+        <div>
+            <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1">Campaign Title</label>
+            <input type="text" name="title" required class="mcc-input w-full" placeholder="e.g. Leak Finder Quiz - Cold Traffic">
+        </div>
+
+        <div>
+            <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1">Creative / Copy</label>
+            <textarea name="creative_text" rows="4" class="mcc-input w-full resize-none" placeholder="Ad copy, creative description, or paste from top organic posts above..."></textarea>
+        </div>
+
+        <div>
+            <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1">Targeting Notes</label>
+            <textarea name="targeting_notes" rows="3" class="mcc-input w-full resize-none" placeholder="Audience, interests, demographics, lookalikes..."></textarea>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1">Budget ($)</label>
+                <input type="number" name="recommended_budget" step="1" value="{{ '%.0f'|format([ad_budget.available * 0.3, 100]|max) }}" class="mcc-input w-full">
+            </div>
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1">Duration (days)</label>
+                <input type="number" name="suggested_duration_days" value="14" class="mcc-input w-full">
+            </div>
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1">Budget Line Item</label>
+                <select name="budget_line_item_id" class="mcc-select w-full">
+                    <option value="">None</option>
+                    {% for bi in budget_items %}
+                    <option value="{{ bi.id }}">{{ bi.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div>
+            <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1">Notes</label>
+            <textarea name="notes" rows="2" class="mcc-input w-full resize-none" placeholder="Additional notes..."></textarea>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button type="submit" class="mcc-btn-primary">Save Brief</button>
+            <div id="brief-result"></div>
+        </div>
+    </form>
+</div>

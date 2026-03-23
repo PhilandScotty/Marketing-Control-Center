@@ -1,0 +1,80 @@
+<!-- AI Chat Slide-out Panel -->
+<div class="flex flex-col h-full">
+    <!-- Header -->
+    <div class="px-4 py-3 border-b border-mcc-border flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-mcc-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+            </svg>
+            <span class="font-semibold text-sm">AI Chat</span>
+            {% if not ai_configured %}
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-mcc-warning/20 text-mcc-warning">No API Key</span>
+            {% endif %}
+        </div>
+        <div class="flex items-center gap-2">
+            <button hx-post="/chat/conversations/new" hx-target="#chat-body" hx-swap="innerHTML"
+                    class="text-xs text-mcc-muted hover:text-mcc-text transition-colors" title="New Chat">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+            </button>
+            <button onclick="document.getElementById('ai-chat-panel').classList.add('hidden')"
+                    class="text-mcc-muted hover:text-mcc-text transition-colors" title="Close (Ctrl+Space)">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="px-4 py-2 border-b border-mcc-border flex gap-2 flex-shrink-0 flex-wrap">
+        <button hx-post="/chat/quick-action" hx-vals='{"action": "Morning briefing"}'
+                hx-target="#chat-body" hx-swap="innerHTML"
+                class="px-2 py-1 rounded text-[11px] bg-mcc-secondary/50 text-mcc-muted hover:text-mcc-text hover:bg-mcc-secondary transition-colors">
+            Morning briefing
+        </button>
+        <button hx-post="/chat/quick-action" hx-vals='{"action": "What needs attention?"}'
+                hx-target="#chat-body" hx-swap="innerHTML"
+                class="px-2 py-1 rounded text-[11px] bg-mcc-secondary/50 text-mcc-muted hover:text-mcc-text hover:bg-mcc-secondary transition-colors">
+            What needs attention?
+        </button>
+        <button hx-post="/chat/quick-action" hx-vals='{"action": "Weekly summary"}'
+                hx-target="#chat-body" hx-swap="innerHTML"
+                class="px-2 py-1 rounded text-[11px] bg-mcc-secondary/50 text-mcc-muted hover:text-mcc-text hover:bg-mcc-secondary transition-colors">
+            Weekly summary
+        </button>
+        <button hx-post="/chat/quick-action" hx-vals='{"action": "Strategy export"}'
+                hx-target="#chat-body" hx-swap="innerHTML"
+                class="px-2 py-1 rounded text-[11px] bg-mcc-accent/20 text-mcc-accent hover:text-white hover:bg-mcc-accent/40 transition-colors">
+            Strategy export
+        </button>
+    </div>
+
+    <!-- Chat Body -->
+    <div id="chat-body" class="flex-1 overflow-y-auto">
+        <!-- Conversation List (default state) -->
+        <div class="p-4">
+            {% if conversations %}
+            <div class="text-[10px] uppercase tracking-wider text-mcc-muted mb-2 font-semibold">Recent Conversations</div>
+            <div class="space-y-1">
+                {% for conv in conversations %}
+                <button hx-get="/chat/conversations/{{ conv.id }}" hx-target="#chat-body" hx-swap="innerHTML"
+                        class="w-full text-left px-3 py-2 rounded hover:bg-mcc-border/30 transition-colors group">
+                    <div class="text-xs text-mcc-text truncate">{{ conv.title }}</div>
+                    <div class="text-[10px] text-mcc-muted">{{ conv.updated_at.strftime('%b %d, %I:%M %p') }}</div>
+                </button>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8">
+                <svg class="w-12 h-12 mx-auto text-mcc-border mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                </svg>
+                <p class="text-xs text-mcc-muted mb-2">No conversations yet</p>
+                <p class="text-[10px] text-mcc-muted">Start with a quick action above or create a new chat</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

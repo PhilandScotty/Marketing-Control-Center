@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ competitor.name }}{% endblock %}
+{% block page_title %}{{ competitor.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl space-y-6">
+    <div class="flex items-center gap-2 text-xs text-mcc-muted">
+        <a href="/competitors" class="hover:text-mcc-text">&larr; Competitors</a>
+        <span>/</span>
+        <span>{{ competitor.name }}</span>
+    </div>
+
+    <div class="grid grid-cols-3 gap-6">
+        <!-- Main Info -->
+        <div class="col-span-2 space-y-4">
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-semibold">{{ competitor.name }}</h2>
+                    <form method="post" action="/competitors/{{ competitor.id }}/delete"
+                          onsubmit="return confirm('Delete this competitor?')">
+                        <button type="submit" class="text-xs text-red-400 hover:text-red-300">Delete</button>
+                    </form>
+                </div>
+
+                <form method="post" action="/competitors/{{ competitor.id }}/update" class="space-y-4">
+                    {% if competitor.website %}
+                    <div class="text-xs text-mcc-muted">{{ competitor.website }}</div>
+                    {% endif %}
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[10px] text-mcc-muted uppercase tracking-wider">Pricing</label>
+                            <textarea name="pricing_summary" rows="3" class="mcc-input w-full text-xs mt-1">{{ competitor.pricing_summary }}</textarea>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-mcc-muted uppercase tracking-wider">Positioning</label>
+                            <textarea name="positioning_summary" rows="3" class="mcc-input w-full text-xs mt-1">{{ competitor.positioning_summary }}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[10px] text-mcc-muted uppercase tracking-wider">Strengths</label>
+                            <textarea name="strengths" rows="3" class="mcc-input w-full text-xs mt-1">{{ competitor.strengths }}</textarea>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-mcc-muted uppercase tracking-wider">Weaknesses</label>
+                            <textarea name="weaknesses" rows="3" class="mcc-input w-full text-xs mt-1">{{ competitor.weaknesses }}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit" class="px-4 py-2 rounded text-xs bg-mcc-accent text-white hover:bg-mcc-accent/80">Save</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Updates Timeline -->
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-5">
+                <h3 class="font-semibold text-sm mb-4">Intelligence Updates</h3>
+                {% if updates %}
+                <div class="space-y-3">
+                    {% for u in updates %}
+                    <div class="flex gap-3 text-xs">
+                        <div class="w-16 flex-shrink-0 text-mcc-muted">{{ u.observed_at.strftime('%b %d') }}</div>
+                        <div>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] bg-mcc-secondary text-mcc-muted mr-1">{{ u.update_type.value|replace('_', ' ') }}</span>
+                            <span>{{ u.summary }}</span>
+                            {% if u.source_url %}
+                            <span class="text-mcc-accent ml-1">[source]</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-xs text-mcc-muted">No updates recorded yet</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Add Update -->
+        <div>
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-4">
+                <h3 class="font-semibold text-sm mb-3">Log Update</h3>
+                <form method="post" action="/competitors/{{ competitor.id }}/add-update" class="space-y-3">
+                    <select name="update_type" class="mcc-select w-full text-xs">
+                        {% for t in update_types %}
+                        <option value="{{ t }}">{{ t|replace('_', ' ')|title }}</option>
+                        {% endfor %}
+                    </select>
+                    <textarea name="summary" rows="4" placeholder="What happened?" required class="mcc-input w-full text-xs"></textarea>
+                    <input type="text" name="source_url" placeholder="Source URL (optional)" class="mcc-input w-full text-xs">
+                    <button type="submit" class="w-full px-3 py-2 rounded text-xs bg-mcc-accent text-white hover:bg-mcc-accent/80">
+                        Log Update
+                    </button>
+                </form>
+            </div>
+
+            <div class="mt-4 bg-mcc-card border border-mcc-border rounded-lg p-4">
+                <div class="text-[10px] text-mcc-muted uppercase tracking-wider mb-2">Key Channels</div>
+                {% if competitor.key_channels %}
+                <div class="flex flex-wrap gap-1">
+                    {% for ch in competitor.key_channels %}
+                    <span class="px-2 py-0.5 rounded text-[10px] bg-mcc-bg text-mcc-muted">{{ ch }}</span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-xs text-mcc-muted">None tracked</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

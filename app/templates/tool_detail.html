@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}{{ tool.name }}{% endblock %}
+{% block page_title %}{{ tool.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="/tools" class="text-xs text-mcc-accent hover:text-mcc-accent/80 transition-colors">&larr; Back to Connected Tools</a>
+</div>
+
+<div class="grid grid-cols-12 gap-5">
+    <!-- Left: Tool Info + Edit -->
+    <div class="col-span-12 xl:col-span-8 space-y-5">
+
+        <!-- Status Banner -->
+        <div class="mcc-card p-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <span class="health-dot health-{% if tool.health.value == 'online' %}healthy{% elif tool.health.value == 'degraded' %}warning{% elif tool.health.value == 'offline' %}critical{% else %}unknown{% endif %}"></span>
+                <div>
+                    <span class="text-sm font-semibold">{{ tool.health.value|capitalize }}</span>
+                    {% if tool.last_heartbeat %}
+                    <span class="text-xs text-mcc-muted ml-2">Last heartbeat {{ hours_since }}h ago</span>
+                    {% if is_overdue %}<span class="text-xs text-mcc-critical ml-1">(overdue)</span>{% endif %}
+                    {% else %}
+                    <span class="text-xs text-mcc-muted ml-2">No heartbeat received</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex items-center gap-4 text-xs text-mcc-muted">
+                <div class="text-center">
+                    <div class="font-mono font-semibold text-mcc-text">{{ tool.total_heartbeats or 0 }}</div>
+                    <div class="text-[10px]">Heartbeats</div>
+                </div>
+                <div class="text-center">
+                    <div class="font-mono font-semibold text-mcc-text">{{ tool.total_metrics or 0 }}</div>
+                    <div class="text-[10px]">Metrics</div>
+                </div>
+                <div class="text-center">
+                    <div class="font-mono font-semibold text-mcc-text">{{ tool.total_alerts or 0 }}</div>
+                    <div class="text-[10px]">Alerts</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Key -->
+        <div class="mcc-card p-4">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-semibold tracking-tight">API Key</h3>
+                <form action="/tools/{{ tool.id }}/regenerate-key" method="post" class="inline"
+                      onsubmit="return confirm('Regenerate API key? The old key will stop working immediately.')">
+                    <button type="submit" class="text-[10px] text-mcc-critical hover:text-mcc-critical/80 transition-colors">Regenerate</button>
+                </form>
+            </div>
+            <div class="flex items-center gap-2">
+                <code class="flex-1 font-mono text-xs bg-mcc-bg rounded-lg px-3 py-2 text-mcc-accent border border-mcc-border select-all">{{ tool.api_key }}</code>
+                <button onclick="navigator.clipboard.writeText('{{ tool.api_key }}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy', 1500)"
+                        class="text-[10px] px-3 py-2 rounded-lg bg-mcc-secondary/40 text-mcc-accent hover:bg-mcc-secondary/60 transition-colors">
+                    Copy
+                </button>
+            </div>
+            <p class="text-[10px] text-mcc-muted mt-2">Use this key in the <code class="font-mono">X-Api-Key</code> header for all API calls.</p>
+        </div>
+
+        <!-- Edit Form -->
+        <div class="mcc-card p-4">
+            <h3 class="text-sm font-semibold tracking-tight mb-4">Tool Settings</h3>
+            <form action="/tools/{{ tool.id }}/edit" method="post" class="space-y-4">
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Name</label>
+                        <input type="text" name="name" class="mcc-input w-full" value="{{ tool.name }}" required>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Type</label>
+                        <select name="tool_type" class="mcc-select w-full">
+                            {% for tt in tool_types %}
+                            <option value="{{ tt }}" {% if tool.tool_type.value == tt %}selected{% endif %}>{{ tt.replace('_', ' ').title() }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Platform</label>
+                        <input type="text" name="platform" class="mcc-input w-full" value="{{ tool.platform }}">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Workspace Path</label>
+                        <input type="text" name="workspace_path" class="mcc-input w-full" value="{{ tool.workspace_path or '' }}">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Expected Heartbeat (hours)</label>
+                        <input type="number" name="expected_heartbeat_hours" class="mcc-input w-full" value="{{ tool.expected_heartbeat_hours or '' }}">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Owner</label>
+                        <input type="text" name="owner" class="mcc-input w-full" value="{{ tool.owner }}">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Notes</label>
+                    <input type="text" name="notes" class="mcc-input w-full" value="{{ tool.notes }}">
+                </div>
+                <div class="flex items-center justify-between">
+                    <form action="/tools/{{ tool.id }}/delete" method="post" class="inline"
+                          onsubmit="return confirm('Deactivate this tool? It will no longer accept API calls.')">
+                        <button type="submit" class="text-[10px] text-mcc-critical hover:text-mcc-critical/80 transition-colors">Deactivate Tool</button>
+                    </form>
+                    <button type="submit" class="mcc-btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Recent Metrics -->
+        <div class="mcc-card p-4">
+            <h3 class="text-sm font-semibold tracking-tight mb-3">Recent Metrics</h3>
+            {% if recent_metrics %}
+            <div class="overflow-hidden rounded-lg border border-mcc-border">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="border-b border-mcc-border text-[10px] text-mcc-muted uppercase">
+                            <th class="text-left py-2 px-3">Metric</th>
+                            <th class="text-right py-2 px-3">Value</th>
+                            <th class="text-left py-2 px-3">Unit</th>
+                            <th class="text-left py-2 px-3">Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in recent_metrics %}
+                        <tr class="border-b border-mcc-border/30">
+                            <td class="py-2 px-3 font-medium">{{ m.metric_name }}</td>
+                            <td class="py-2 px-3 text-right font-mono">{{ "%.2f"|format(m.metric_value) }}</td>
+                            <td class="py-2 px-3 text-mcc-muted">{{ m.unit }}</td>
+                            <td class="py-2 px-3 text-mcc-muted font-mono">{{ m.recorded_at.strftime('%b %d %H:%M') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-xs text-mcc-muted py-4 text-center">No metrics recorded yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right: Alerts + Quick Reference -->
+    <div class="col-span-12 xl:col-span-4 space-y-5">
+
+        <!-- Recent Alerts -->
+        <div class="mcc-card p-4">
+            <h3 class="text-sm font-semibold tracking-tight mb-3">Recent Alerts</h3>
+            {% if recent_alerts %}
+            <div class="space-y-2">
+                {% for alert in recent_alerts %}
+                <div class="bg-mcc-bg rounded-lg p-3 border border-mcc-border/50" id="tool-alert-{{ alert.id }}">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1.5 mb-0.5">
+                                <span class="text-[10px] uppercase font-semibold
+                                    {% if alert.severity.value == 'critical' %}text-mcc-critical
+                                    {% elif alert.severity.value == 'urgent' %}text-mcc-warning
+                                    {% elif alert.severity.value == 'attention' %}text-mcc-accent
+                                    {% else %}text-mcc-muted{% endif %}">
+                                    {{ alert.severity.value }}
+                                </span>
+                                <span class="text-[10px] text-mcc-dim">{{ alert.created_at.strftime('%b %d %H:%M') }}</span>
+                            </div>
+                            <div class="text-xs font-medium">{{ alert.title }}</div>
+                            {% if alert.body %}
+                            <div class="text-[10px] text-mcc-muted mt-0.5">{{ alert.body[:150] }}</div>
+                            {% endif %}
+                        </div>
+                        {% if not alert.acknowledged %}
+                        <button class="text-mcc-dim hover:text-mcc-text p-0.5 transition-colors"
+                                hx-post="/tools/alerts/{{ alert.id }}/ack"
+                                hx-target="#tool-alert-{{ alert.id }}"
+                                hx-swap="outerHTML"
+                                title="Acknowledge">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-xs text-mcc-muted py-4 text-center">No alerts.</p>
+            {% endif %}
+        </div>
+
+        <!-- Quick API Reference -->
+        <div class="mcc-card p-4">
+            <h3 class="text-sm font-semibold tracking-tight mb-3">Quick API Reference</h3>
+            <div class="space-y-3 text-[11px]">
+                <div class="bg-mcc-bg rounded-lg p-3">
+                    <div class="text-[10px] uppercase text-mcc-accent font-semibold mb-1">Heartbeat</div>
+                    <code class="font-mono text-mcc-muted block">curl -X POST http://localhost:5050/api/tools/heartbeat \<br>
+&nbsp; -H "X-Api-Key: {{ tool.api_key[:8] }}..." \<br>
+&nbsp; -H "Content-Type: application/json" \<br>
+&nbsp; -d '{"status":"online"}'</code>
+                </div>
+                <div class="bg-mcc-bg rounded-lg p-3">
+                    <div class="text-[10px] uppercase text-mcc-accent font-semibold mb-1">Metrics</div>
+                    <code class="font-mono text-mcc-muted block">curl -X POST http://localhost:5050/api/tools/metrics \<br>
+&nbsp; -H "X-Api-Key: {{ tool.api_key[:8] }}..." \<br>
+&nbsp; -H "Content-Type: application/json" \<br>
+&nbsp; -d '{"metrics":[{"metric_name":"posts_scraped","value":42}]}'</code>
+                </div>
+                <div class="bg-mcc-bg rounded-lg p-3">
+                    <div class="text-[10px] uppercase text-mcc-accent font-semibold mb-1">Alert</div>
+                    <code class="font-mono text-mcc-muted block">curl -X POST http://localhost:5050/api/tools/alert \<br>
+&nbsp; -H "X-Api-Key: {{ tool.api_key[:8] }}..." \<br>
+&nbsp; -H "Content-Type: application/json" \<br>
+&nbsp; -d '{"severity":"attention","title":"Something happened"}'</code>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

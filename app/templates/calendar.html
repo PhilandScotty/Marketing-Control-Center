@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Calendar{% endblock %}
+{% block page_title %}Marketing Calendar{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<!-- Header: Nav + View Toggle + Legend -->
+<div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+        <a href="/calendar?year={{ prev_year }}&month={{ prev_month }}&view={{ view }}" class="p-1.5 rounded hover:bg-mcc-bg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </a>
+        <h2 class="text-lg font-semibold min-w-[160px] text-center">{{ month_name }}</h2>
+        <a href="/calendar?year={{ next_year }}&month={{ next_month }}&view={{ view }}" class="p-1.5 rounded hover:bg-mcc-bg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </a>
+        <a href="/calendar?view={{ view }}" class="text-xs text-mcc-accent hover:underline ml-2">Today</a>
+    </div>
+    <div class="flex items-center gap-3">
+        <!-- View Toggle -->
+        <div class="flex rounded-lg border border-mcc-border overflow-hidden">
+            <a href="/calendar?year={{ cal_year }}&month={{ cal_month }}&view=month"
+               class="px-3 py-1 text-xs {% if view == 'month' %}bg-mcc-accent text-white{% else %}text-mcc-muted hover:bg-mcc-bg{% endif %}">Month</a>
+            <a href="/calendar?year={{ cal_year }}&month={{ cal_month }}&view=week"
+               class="px-3 py-1 text-xs {% if view == 'week' %}bg-mcc-accent text-white{% else %}text-mcc-muted hover:bg-mcc-bg{% endif %}">Week</a>
+        </div>
+        <!-- Legend -->
+        <div class="flex items-center gap-3 text-[10px] text-mcc-muted">
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm" style="background:{{ event_colors.task }}"></span>Tasks</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm" style="background:{{ event_colors.content }}"></span>Content</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm" style="background:{{ event_colors.email }}"></span>Email</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm" style="background:{{ event_colors.ad }}"></span>Ads</span>
+        </div>
+        <span class="text-xs text-mcc-muted">{{ total_events }} events</span>
+    </div>
+</div>
+
+<!-- Calendar Grid -->
+<div class="bg-mcc-card rounded-lg border border-mcc-border overflow-hidden">
+    <!-- Day Headers -->
+    <div class="grid grid-cols-7 border-b border-mcc-border">
+        {% for day_name in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+        <div class="text-center text-[10px] text-mcc-muted uppercase tracking-wide py-2 font-semibold {% if not loop.last %}border-r border-mcc-border{% endif %}">
+            {{ day_name }}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Weeks -->
+    {% for week in cal_grid %}
+    <div class="grid grid-cols-7 {% if not loop.last %}border-b border-mcc-border{% endif %}">
+        {% for cell in week %}
+        <div class="{% if not loop.last %}border-r border-mcc-border{% endif %} p-1.5
+                    {% if view == 'week' %}min-h-[200px]{% else %}min-h-[100px]{% endif %}
+                    {% if not cell.in_month %}bg-mcc-bg/20{% endif %}
+                    {% if cell.is_today %}bg-mcc-accent/5 ring-1 ring-inset ring-mcc-accent/20{% endif %}">
+            <!-- Day Number -->
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs {% if cell.is_today %}text-mcc-accent font-bold{% elif not cell.in_month %}text-mcc-muted/40{% else %}text-mcc-muted{% endif %}">
+                    {{ cell.day }}
+                </span>
+                {% if cell.events %}
+                <span class="text-[9px] text-mcc-muted">{{ cell.events|length }}</span>
+                {% endif %}
+            </div>
+            <!-- Events -->
+            {% for event in cell.events[:4] %}
+            <div class="text-[10px] rounded px-1 py-0.5 mb-0.5 truncate cursor-default"
+                 style="background: {{ event.color }}20; color: {{ event.color }}; border-left: 2px solid {{ event.color }};"
+                 title="{{ event.title }} - {{ event.detail }}">
+                {{ event.title }}
+            </div>
+            {% endfor %}
+            {% if cell.events|length > 4 %}
+            <div class="text-[9px] text-mcc-muted text-center">+{{ cell.events|length - 4 }} more</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+
+{% endif %}
+{% endblock %}

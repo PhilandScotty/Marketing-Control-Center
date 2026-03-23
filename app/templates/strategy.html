@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Strategy{% endblock %}
+{% block page_title %}Strategy Builder{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    {% if not project %}
+    <div class="text-center py-12 text-mcc-muted">No project loaded</div>
+    {% else %}
+
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-sm text-mcc-muted">AI-guided strategy across 7 key areas. Build each section through conversation or write directly.</p>
+        </div>
+        <div class="flex items-center gap-2">
+            {% set completed = sections|selectattr('has_content')|list|length %}
+            <span class="text-xs text-mcc-muted">{{ completed }}/{{ sections|length }} complete</span>
+            <div class="w-32 h-2 bg-mcc-border rounded-full overflow-hidden">
+                <div class="h-full bg-mcc-accent rounded-full" style="width: {{ (completed / sections|length * 100)|int }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Cards -->
+    <div class="grid grid-cols-1 gap-4">
+        {% for sec in sections %}
+        <div class="bg-mcc-card border border-mcc-border rounded-lg p-5">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-semibold text-sm">{{ sec.label }}</h3>
+                        {% if sec.has_content %}
+                        <span class="w-2 h-2 rounded-full bg-mcc-success"></span>
+                        {% else %}
+                        <span class="w-2 h-2 rounded-full bg-mcc-border"></span>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs text-mcc-muted mt-1">{{ sec.description }}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    {% if ai_configured %}
+                    <button hx-post="/strategy/section/{{ sec.section.value }}/start-ai"
+                            hx-swap="innerHTML" hx-target="#main-content"
+                            class="px-3 py-1.5 rounded text-xs bg-mcc-secondary text-mcc-text hover:bg-mcc-secondary/80 transition-colors">
+                        AI Guide
+                    </button>
+                    {% endif %}
+                    <button hx-get="/strategy/section/{{ sec.section.value }}"
+                            hx-target="#section-detail-{{ sec.section.value }}"
+                            hx-swap="innerHTML"
+                            class="px-3 py-1.5 rounded text-xs border border-mcc-border text-mcc-muted hover:text-mcc-text hover:border-mcc-accent transition-colors">
+                        {% if sec.has_content %}Edit{% else %}Write{% endif %}
+                    </button>
+                </div>
+            </div>
+
+            {% if sec.has_content %}
+            <div class="text-xs text-mcc-muted bg-mcc-bg/50 rounded p-3 whitespace-pre-wrap line-clamp-3">{{ sec.strategy.content[:300] }}{% if sec.strategy.content|length > 300 %}...{% endif %}</div>
+            {% endif %}
+
+            <div id="section-detail-{{ sec.section.value }}"></div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}

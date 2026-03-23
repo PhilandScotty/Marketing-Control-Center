@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Knowledge Base{% endblock %}
+{% block page_title %}Knowledge Base{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <!-- Type Filter -->
+            <div class="flex items-center gap-1">
+                <a href="/knowledge" class="px-2 py-1 rounded text-[11px] {% if not current_filter %}bg-mcc-accent text-white{% else %}text-mcc-muted hover:text-mcc-text{% endif %}">All</a>
+                {% for t in entry_types %}
+                <a href="/knowledge?entry_type={{ t }}" class="px-2 py-1 rounded text-[11px] {% if current_filter == t %}bg-mcc-accent text-white{% else %}text-mcc-muted hover:text-mcc-text{% endif %}">
+                    {{ t|replace('_', ' ')|title }} <span class="text-[10px] opacity-60">{{ type_counts.get(t, 0) }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% if unconfirmed_count > 0 %}
+        <span class="px-2 py-1 rounded text-[11px] bg-mcc-warning/20 text-mcc-warning">{{ unconfirmed_count }} unconfirmed</span>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-3 gap-6">
+        <!-- Entries List -->
+        <div class="col-span-2 space-y-3">
+            <!-- Search -->
+            <form method="get" action="/knowledge" class="flex gap-2">
+                <input type="hidden" name="entry_type" value="{{ current_filter }}">
+                <input type="text" name="search" value="{{ current_search }}" placeholder="Search knowledge base..."
+                       class="mcc-input flex-1 text-xs">
+                <button type="submit" class="px-3 py-1.5 rounded text-xs bg-mcc-secondary text-mcc-text hover:bg-mcc-secondary/80">Search</button>
+            </form>
+
+            {% if entries %}
+            {% for entry in entries %}
+            <a href="/knowledge/{{ entry.id }}" class="block bg-mcc-card border border-mcc-border rounded-lg p-4 hover:border-mcc-accent/30 transition-colors">
+                <div class="flex items-start justify-between mb-2">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-medium text-sm">{{ entry.title }}</h3>
+                            {% if not entry.confirmed %}
+                            <span class="px-1.5 py-0.5 rounded text-[10px] bg-mcc-warning/20 text-mcc-warning">Unconfirmed</span>
+                            {% endif %}
+                            {% if entry.auto_generated %}
+                            <span class="px-1.5 py-0.5 rounded text-[10px] bg-mcc-secondary text-mcc-muted">AI</span>
+                            {% endif %}
+                        </div>
+                        <div class="text-[10px] text-mcc-muted mt-0.5">
+                            {{ entry.entry_type.value|replace('_', ' ')|title }}
+                            {% if entry.source_project %} &middot; {{ entry.source_project }}{% endif %}
+                            &middot; {{ entry.created_at.strftime('%b %d, %Y') }}
+                        </div>
+                    </div>
+                </div>
+                <p class="text-xs text-mcc-muted line-clamp-2">{{ entry.body[:200] }}</p>
+                {% if entry.tags %}
+                <div class="flex flex-wrap gap-1 mt-2">
+                    {% for tag in entry.tags %}
+                    <span class="px-1.5 py-0.5 rounded text-[10px] bg-mcc-bg text-mcc-muted">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </a>
+            {% endfor %}
+            {% else %}
+            <div class="text-center py-12 text-mcc-muted text-sm">No entries found</div>
+            {% endif %}
+        </div>
+
+        <!-- Create New Entry -->
+        <div class="space-y-4">
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-4">
+                <h3 class="font-semibold text-sm mb-3">New Entry</h3>
+                <form method="post" action="/knowledge/create" class="space-y-3">
+                    <input type="text" name="title" placeholder="Title" required class="mcc-input w-full text-xs">
+                    <select name="entry_type" class="mcc-select w-full text-xs">
+                        {% for t in entry_types %}
+                        <option value="{{ t }}">{{ t|replace('_', ' ')|title }}</option>
+                        {% endfor %}
+                    </select>
+                    <textarea name="body" rows="6" placeholder="Knowledge content (Markdown)" class="mcc-input w-full text-xs"></textarea>
+                    <input type="text" name="tags" placeholder="Tags (comma-separated)" class="mcc-input w-full text-xs">
+                    <label class="flex items-center gap-2 text-xs text-mcc-muted">
+                        <input type="checkbox" name="is_global" value="true" class="rounded">
+                        Global (cross-project)
+                    </label>
+                    <button type="submit" class="w-full px-3 py-2 rounded text-xs bg-mcc-accent text-white hover:bg-mcc-accent/80 transition-colors">
+                        Create Entry
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

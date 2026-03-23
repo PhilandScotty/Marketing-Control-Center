@@ -1,0 +1,537 @@
+{% extends "base.html" %}
+{% block title %}Channels{% endblock %}
+{% block page_title %}Channels{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Stats Bar -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl font-bold">{{ total }}</span>
+                <span class="text-xs text-mcc-muted">Total Channels</span>
+            </div>
+            <div class="w-px h-8 bg-mcc-border"></div>
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-mcc-success"></span>
+                <span class="text-sm font-medium">{{ live_count }}</span>
+                <span class="text-xs text-mcc-muted">Live</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span class="text-sm font-medium">{{ healthy_count }}</span>
+                <span class="text-xs text-mcc-muted">Healthy</span>
+            </div>
+            {% if warning_count > 0 %}
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-mcc-warning"></span>
+                <span class="text-sm font-medium">{{ warning_count }}</span>
+                <span class="text-xs text-mcc-muted">Need Attention</span>
+            </div>
+            {% endif %}
+        </div>
+        <div class="flex items-center gap-2">
+            <button hx-post="/channels/sync-integrations"
+                    hx-target="#sync-status"
+                    hx-swap="innerHTML"
+                    hx-indicator="#sync-spinner"
+                    class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-mcc-card text-mcc-muted border border-mcc-border hover:text-mcc-text hover:border-mcc-accent/30 transition-all">
+                <svg id="sync-spinner" class="w-4 h-4 htmx-indicator animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Sync Now
+            </button>
+            <span id="sync-status" class="text-xs"></span>
+            <button onclick="openAddChannelModal()"
+                    class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-mcc-accent/20 text-mcc-accent border border-mcc-accent/30 hover:bg-mcc-accent/30 transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add Channel
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== CHANNEL INTELLIGENCE ==================== -->
+    <div class="bg-mcc-card border border-mcc-border rounded-card overflow-hidden">
+        <div class="px-5 py-3 border-b border-mcc-border flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-mcc-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                <h2 class="text-sm font-semibold">Channel Intelligence</h2>
+            </div>
+            <button onclick="toggleIntelligence()" id="intel-toggle"
+                    class="text-[10px] text-mcc-muted hover:text-mcc-text transition-colors flex items-center gap-1">
+                <svg id="intel-chevron" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                <span id="intel-label">Collapse</span>
+            </button>
+        </div>
+
+        <div id="intel-content" class="transition-all">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-y lg:divide-y-0 lg:divide-x divide-mcc-border">
+
+                <!-- LEFT COLUMN: Performance Ranking + Alerts -->
+                <div class="divide-y divide-mcc-border/50">
+
+                    <!-- Performance Ranking -->
+                    <div class="p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider">Performance Ranking</h3>
+                            <span class="text-[9px] text-mcc-dim">Live channels only</span>
+                        </div>
+
+                        {% if rankings %}
+                        <div class="space-y-1.5">
+                            {% for r in rankings %}
+                            <div class="flex items-center gap-3 py-1.5 px-2 rounded-lg {% if loop.index == 1 %}bg-mcc-accent/5 border border-mcc-accent/15{% else %}hover:bg-mcc-bg/50{% endif %} transition-colors">
+                                <span class="text-xs font-bold w-5 text-center {% if loop.index == 1 %}text-mcc-accent{% elif loop.index <= 3 %}text-mcc-text{% else %}text-mcc-muted{% endif %}">
+                                    #{{ loop.index }}
+                                </span>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <a href="/channels/{{ r.channel.id }}" class="text-xs font-medium text-mcc-text hover:text-mcc-accent transition-colors truncate">{{ r.channel.name }}</a>
+                                        <span class="text-[9px] text-mcc-dim font-mono">{{ r.score }}pts</span>
+                                    </div>
+                                    <div class="text-[10px] text-mcc-muted mt-0.5">
+                                        {% if r.primary_value %}{{ r.primary_value }} {{ r.primary_metric }}{% endif %}
+                                        {% if r.conversions > 0 %} · {{ r.conversions }} conversion{{ 's' if r.conversions != 1 }}{% endif %}
+                                        · {{ r.cost_label }}
+                                    </div>
+                                </div>
+                                <!-- Score bar -->
+                                <div class="w-16 h-1.5 bg-mcc-bg rounded-full overflow-hidden flex-shrink-0">
+                                    {% set max_score = rankings[0].score if rankings[0].score > 0 else 1 %}
+                                    <div class="h-full rounded-full {% if loop.index == 1 %}bg-mcc-accent{% elif loop.index <= 3 %}bg-mcc-success{% else %}bg-mcc-muted{% endif %}"
+                                         style="width: {{ (r.score / max_score * 100)|int }}%"></div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-xs text-mcc-dim italic py-3">No live channels with metrics to rank</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Alerts -->
+                    {% if stale_alerts or metric_drops %}
+                    <div class="p-5">
+                        <h3 class="text-xs font-semibold text-mcc-warning uppercase tracking-wider mb-3">Alerts</h3>
+                        <div class="space-y-2">
+                            {% for drop in metric_drops %}
+                            <div class="flex items-start gap-2 py-1.5 px-2 rounded-lg bg-red-500/5 border border-red-500/15">
+                                <svg class="w-3.5 h-3.5 text-mcc-critical flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>
+                                <div>
+                                    <div class="text-xs text-mcc-text">
+                                        <span class="font-medium">{{ drop.channel.name }}</span>: {{ drop.metric.replace("_", " ") }} dropped <span class="text-mcc-critical font-medium">{{ drop.pct_change }}%</span>
+                                    </div>
+                                    <div class="text-[10px] text-mcc-muted">{{ "{:,.0f}".format(drop.previous) }} &rarr; {{ "{:,.0f}".format(drop.current) }} this week</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+
+                            {% for s in stale_alerts %}
+                            <div class="flex items-start gap-2 py-1.5 px-2 rounded-lg bg-yellow-500/5 border border-yellow-500/15">
+                                <svg class="w-3.5 h-3.5 text-mcc-warning flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <div>
+                                    <div class="text-xs text-mcc-text">
+                                        <span class="font-medium">{{ s.channel.name }}</span> metrics
+                                        {% if s.days_since %}haven't been updated in <span class="text-mcc-warning font-medium">{{ s.days_since }} days</span>
+                                        {% else %}have <span class="text-mcc-warning font-medium">never been recorded</span>{% endif %}
+                                    </div>
+                                    {% if s.last_metric %}
+                                    <div class="text-[10px] text-mcc-muted">Last: {{ s.last_metric.replace("_", " ") }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- RIGHT COLUMN: Gap Analysis + AI Recommendations -->
+                <div class="divide-y divide-mcc-border/50">
+
+                    <!-- Gap Analysis -->
+                    <div class="p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider">Channels You're Not Using Yet</h3>
+                            <span class="text-[9px] text-mcc-dim">vs poker SaaS competitors</span>
+                        </div>
+
+                        {% if gap_channels %}
+                        <div class="space-y-2">
+                            {% for gap in gap_channels %}
+                            <details class="group">
+                                <summary class="flex items-center gap-2 cursor-pointer py-1.5 px-2 rounded-lg hover:bg-mcc-bg/50 transition-colors list-none">
+                                    <svg class="w-3 h-3 text-mcc-accent transition-transform group-open:rotate-90 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                    <span class="text-xs font-medium text-mcc-text">{{ gap.name }}</span>
+                                    <span class="text-[9px] text-mcc-dim ml-auto">{{ gap.competitors.split(",")[0] }}{% if "," in gap.competitors %} +{{ gap.competitors.split(",")|length - 1 }}{% endif %}</span>
+                                </summary>
+                                <div class="ml-5 mt-1 mb-2 px-2">
+                                    <p class="text-[11px] text-mcc-muted leading-relaxed">{{ gap.why }}</p>
+                                    <p class="text-[10px] text-mcc-dim mt-1">Used by: {{ gap.competitors }}</p>
+                                </div>
+                            </details>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-xs text-mcc-success italic py-3">You're covering all reference channels!</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- AI Recommendations -->
+                    <div class="p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider">AI Recommendations</h3>
+                            <button hx-post="/channels/intelligence/refresh"
+                                    hx-target="#ai-recs-content"
+                                    hx-swap="innerHTML"
+                                    hx-indicator="#ai-recs-spinner"
+                                    class="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium text-mcc-accent hover:bg-mcc-accent/10 transition-colors">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                Refresh Analysis
+                            </button>
+                        </div>
+
+                        <div id="ai-recs-content">
+                            {% if ai_recommendations %}
+                            <div class="space-y-1">
+                                <div class="text-[10px] text-mcc-dim mb-2">Generated {{ ai_recommendations.created_at.strftime("%b %d, %I:%M %p") }}</div>
+                                {% for line in ai_recommendations.body.split("\n") %}
+                                {% if line.strip() %}
+                                <p class="text-xs text-mcc-text leading-relaxed mb-1.5">
+                                    {% if "INVEST MORE" in line or "1." in line[:3] %}<span class="text-mcc-success font-semibold">{{ line[:line.index(":")+1] if ":" in line else "" }}</span>{{ line[line.index(":")+1:] if ":" in line else line }}
+                                    {% elif "DEPRIORITIZE" in line or "2." in line[:3] %}<span class="text-mcc-warning font-semibold">{{ line[:line.index(":")+1] if ":" in line else "" }}</span>{{ line[line.index(":")+1:] if ":" in line else line }}
+                                    {% elif "ACTIVATE NEXT" in line or "3." in line[:3] %}<span class="text-mcc-accent font-semibold">{{ line[:line.index(":")+1] if ":" in line else "" }}</span>{{ line[line.index(":")+1:] if ":" in line else line }}
+                                    {% elif "SPECIFIC ACTION" in line or "4." in line[:3] %}<span class="text-purple-400 font-semibold">{{ line[:line.index(":")+1] if ":" in line else "" }}</span>{{ line[line.index(":")+1:] if ":" in line else line }}
+                                    {% else %}{{ line }}{% endif %}
+                                </p>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% elif ai_configured %}
+                            <div class="text-center py-4">
+                                <p class="text-xs text-mcc-muted mb-2">No recommendations yet</p>
+                                <p class="text-[10px] text-mcc-dim">Click "Refresh Analysis" to generate AI-powered channel insights</p>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-4">
+                                <p class="text-xs text-mcc-muted">AI not configured</p>
+                                <p class="text-[10px] text-mcc-dim mt-1">Set ANTHROPIC_API_KEY in .env to enable recommendations</p>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Loading spinner -->
+                        <div id="ai-recs-spinner" class="htmx-indicator flex items-center justify-center py-4">
+                            <svg class="animate-spin w-5 h-5 text-mcc-accent" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span class="text-xs text-mcc-muted ml-2">Analyzing channels with AI...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Sort -->
+    <div class="flex items-center gap-3 flex-wrap">
+        <div class="flex items-center gap-2">
+            <span class="text-xs text-mcc-muted">Sort:</span>
+            <select onchange="applyFilters()" id="sort-select"
+                    class="bg-mcc-card border border-mcc-border rounded-lg px-3 py-1.5 text-xs text-mcc-text focus:border-mcc-accent/50 focus:outline-none">
+                <option value="name" {% if sort == 'name' %}selected{% endif %}>Name</option>
+                <option value="type" {% if sort == 'type' %}selected{% endif %}>Type</option>
+                <option value="status" {% if sort == 'status' %}selected{% endif %}>Status</option>
+                <option value="health" {% if sort == 'health' %}selected{% endif %}>Health</option>
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-xs text-mcc-muted">Status:</span>
+            <select onchange="applyFilters()" id="status-filter"
+                    class="bg-mcc-card border border-mcc-border rounded-lg px-3 py-1.5 text-xs text-mcc-text focus:border-mcc-accent/50 focus:outline-none">
+                <option value="all" {% if filter_status == 'all' %}selected{% endif %}>All</option>
+                {% for val, label in channel_statuses %}
+                <option value="{{ val }}" {% if filter_status == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-xs text-mcc-muted">Type:</span>
+            <select onchange="applyFilters()" id="type-filter"
+                    class="bg-mcc-card border border-mcc-border rounded-lg px-3 py-1.5 text-xs text-mcc-text focus:border-mcc-accent/50 focus:outline-none">
+                <option value="all" {% if filter_type == 'all' %}selected{% endif %}>All</option>
+                {% for val, label in channel_types %}
+                <option value="{{ val }}" {% if filter_type == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <!-- Channel Groups -->
+    {% for group in groups %}
+    <div class="space-y-3">
+        <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-mcc-muted uppercase tracking-wider">{{ group.label }}</h2>
+            <div class="flex-1 h-px bg-mcc-border"></div>
+            <span class="text-xs text-mcc-dim">{{ group.channels|length }}</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {% for ch in group.channels %}
+            {% set metrics = channel_metrics.get(ch.id, {}) %}
+            {% set tasks = task_counts.get(ch.id, 0) %}
+            <a href="/channels/{{ ch.id }}"
+               class="block bg-mcc-card border border-mcc-border rounded-card p-4 hover:border-mcc-border-hover hover:bg-mcc-card-hover transition-all group">
+
+                <!-- Header -->
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="font-medium text-sm truncate group-hover:text-mcc-accent transition-colors">{{ ch.name }}</span>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium
+                                {% if ch.channel_type.value in ['email', 'content', 'seo'] %}bg-blue-500/15 text-blue-400
+                                {% elif ch.channel_type.value in ['social', 'community'] %}bg-purple-500/15 text-purple-400
+                                {% elif ch.channel_type.value in ['paid_ads', 'cold_outreach'] %}bg-orange-500/15 text-orange-400
+                                {% else %}bg-emerald-500/15 text-emerald-400{% endif %}">
+                                {{ ch.channel_type.value.replace("_", " ").title() }}
+                            </span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium
+                                {% if ch.status.value == 'live' %}bg-mcc-success/15 text-mcc-success
+                                {% elif ch.status.value == 'building' %}bg-mcc-accent/15 text-mcc-accent
+                                {% elif ch.status.value == 'blocked' %}bg-red-500/15 text-red-400
+                                {% elif ch.status.value == 'paused' %}bg-yellow-500/15 text-yellow-400
+                                {% else %}bg-mcc-dim/30 text-mcc-muted{% endif %}">
+                                {{ ch.status.value.title() }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Health Indicator -->
+                    <div class="flex-shrink-0 ml-2">
+                        {% if ch.health.value == 'healthy' %}
+                        <span class="inline-block w-3 h-3 rounded-full bg-mcc-success" style="box-shadow: 0 0 8px rgba(16,185,129,0.4)" title="Healthy"></span>
+                        {% elif ch.health.value == 'warning' %}
+                        <span class="inline-block w-3 h-3 rounded-full bg-mcc-warning" style="box-shadow: 0 0 8px rgba(245,158,11,0.4)" title="Warning"></span>
+                        {% elif ch.health.value == 'critical' %}
+                        <span class="inline-block w-3 h-3 rounded-full bg-mcc-critical" style="box-shadow: 0 0 8px rgba(239,68,68,0.4)" title="Critical"></span>
+                        {% elif ch.health.value == 'stale' %}
+                        <span class="inline-block w-3 h-3 rounded-full bg-gray-500" title="Stale"></span>
+                        {% else %}
+                        <span class="inline-block w-3 h-3 rounded-full bg-mcc-dim" title="Unknown"></span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Metrics -->
+                {% if metrics %}
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    {% for name, m in metrics.items() %}
+                    <div class="bg-mcc-bg/50 rounded-lg px-2 py-1.5 text-center">
+                        <div class="text-xs font-mono font-medium text-mcc-text">
+                            {% if m.unit == 'currency' %}${% endif %}{{ "{:,.0f}".format(m.value) }}{% if m.unit == 'percent' %}%{% endif %}
+                        </div>
+                        <div class="text-[9px] text-mcc-muted truncate" title="{{ name }}">{{ name.replace("_", " ").title() }}</div>
+                        {% if m.delta is not none %}
+                        <div class="text-[9px] font-medium {% if m.delta > 0 %}text-mcc-success{% elif m.delta < 0 %}text-mcc-critical{% else %}text-mcc-muted{% endif %}">
+                            {% if m.delta > 0 %}+{% endif %}{{ "%.1f"|format(m.delta) }}%
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-[10px] text-mcc-dim mb-3 italic">No metrics recorded yet</div>
+                {% endif %}
+
+                <!-- Footer -->
+                <div class="flex items-center justify-between text-[10px] text-mcc-muted pt-2 border-t border-mcc-border/50">
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center gap-1">
+                            {% if ch.automation_level.value == 'full_auto' %}
+                            <svg class="w-3 h-3 text-mcc-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            Full Auto
+                            {% elif ch.automation_level.value == 'low_touch' %}
+                            <svg class="w-3 h-3 text-mcc-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            Low Touch
+                            {% else %}
+                            <svg class="w-3 h-3 text-mcc-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"/></svg>
+                            Manual
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% if tasks > 0 %}
+                    <span class="text-mcc-accent">{{ tasks }} task{{ 's' if tasks != 1 }}</span>
+                    {% endif %}
+                    {% if ch.health_reason %}
+                    <span class="text-mcc-warning truncate max-w-[120px]" title="{{ ch.health_reason }}">{{ ch.health_reason }}</span>
+                    {% endif %}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not groups %}
+    <div class="text-center py-16 text-mcc-muted">
+        <svg class="w-12 h-12 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+        <p class="text-sm">No channels found</p>
+        <p class="text-xs mt-1">Add your first channel to get started</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Channel Modal -->
+<div id="add-channel-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)closeAddChannelModal()">
+    <div class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-md p-6 shadow-2xl" onclick="event.stopPropagation()" style="box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(6,182,212,0.05);">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="font-semibold text-sm">Add Channel</h3>
+            <button onclick="closeAddChannelModal()" class="text-mcc-muted hover:text-mcc-text transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form hx-post="/channels/add" hx-target="#add-channel-result" hx-swap="innerHTML" class="space-y-4">
+            <div>
+                <label class="block text-xs text-mcc-muted mb-1">Channel Name</label>
+                <input type="text" name="name" required
+                       class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-sm text-mcc-text focus:border-mcc-accent/50 focus:outline-none"
+                       placeholder="e.g. LinkedIn, Website">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-mcc-muted mb-1">Type</label>
+                    <select name="channel_type" required
+                            class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-sm text-mcc-text focus:border-mcc-accent/50 focus:outline-none">
+                        {% for val, label in channel_types %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-mcc-muted mb-1">Status</label>
+                    <select name="status"
+                            class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-sm text-mcc-text focus:border-mcc-accent/50 focus:outline-none">
+                        {% for val, label in channel_statuses %}
+                        <option value="{{ val }}" {% if val == 'planned' %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-mcc-muted mb-1">Automation Level</label>
+                <select name="automation_level"
+                        class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-sm text-mcc-text focus:border-mcc-accent/50 focus:outline-none">
+                    {% for val, label in automation_levels %}
+                    <option value="{{ val }}" {% if val == 'manual' %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-mcc-muted mb-1">Notes</label>
+                <textarea name="notes" rows="2"
+                          class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-sm text-mcc-text focus:border-mcc-accent/50 focus:outline-none resize-none"
+                          placeholder="Optional notes..."></textarea>
+            </div>
+            <div id="add-channel-result"></div>
+            <button type="submit"
+                    class="w-full py-2 rounded-lg text-sm font-medium bg-mcc-accent text-white hover:bg-mcc-accent/80 transition-colors">
+                Add Channel
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Quick Metric Entry Modal -->
+<div id="quick-metric-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)closeQuickMetricModal()">
+    <div class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-sm p-6 shadow-2xl" onclick="event.stopPropagation()" style="box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-sm">Quick Metric Entry</h3>
+            <button onclick="closeQuickMetricModal()" class="text-mcc-muted hover:text-mcc-text transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form id="quick-metric-form" class="space-y-3">
+            <input type="hidden" id="qm-channel-id" name="channel_id">
+            <div>
+                <label class="block text-xs text-mcc-muted mb-1">Channel</label>
+                <div id="qm-channel-name" class="text-sm font-medium text-mcc-accent"></div>
+            </div>
+            <div>
+                <label class="block text-xs text-mcc-muted mb-1">Metric Name</label>
+                <input type="text" id="qm-metric-name" name="metric_name" required
+                       class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-sm text-mcc-text focus:border-mcc-accent/50 focus:outline-none"
+                       placeholder="e.g. followers, subscribers">
+            </div>
+            <div>
+                <label class="block text-xs text-mcc-muted mb-1">Value</label>
+                <input type="number" id="qm-metric-value" name="metric_value" required step="1"
+                       class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-sm text-mcc-text focus:border-mcc-accent/50 focus:outline-none"
+                       placeholder="0">
+            </div>
+            <div id="qm-result"></div>
+            <button type="submit"
+                    class="w-full py-2 rounded-lg text-sm font-medium bg-mcc-success/20 text-mcc-success border border-mcc-success/30 hover:bg-mcc-success/30 transition-colors">
+                Record Metric
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+function applyFilters() {
+    const sort = document.getElementById('sort-select').value;
+    const status = document.getElementById('status-filter').value;
+    const type = document.getElementById('type-filter').value;
+    window.location.href = `/channels/?sort=${sort}&filter_status=${status}&filter_type=${type}`;
+}
+
+function openAddChannelModal() {
+    document.getElementById('add-channel-modal').classList.remove('hidden');
+}
+function closeAddChannelModal() {
+    document.getElementById('add-channel-modal').classList.add('hidden');
+}
+
+function openQuickMetricModal(channelId, channelName) {
+    document.getElementById('qm-channel-id').value = channelId;
+    document.getElementById('qm-channel-name').textContent = channelName;
+    document.getElementById('qm-result').innerHTML = '';
+    document.getElementById('quick-metric-modal').classList.remove('hidden');
+}
+function closeQuickMetricModal() {
+    document.getElementById('quick-metric-modal').classList.add('hidden');
+}
+
+document.getElementById('quick-metric-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const channelId = document.getElementById('qm-channel-id').value;
+    const formData = new FormData(this);
+    fetch(`/channels/${channelId}/quick-metric`, {
+        method: 'POST',
+        body: formData,
+    }).then(r => r.text()).then(html => {
+        document.getElementById('qm-result').innerHTML = html;
+        setTimeout(() => { closeQuickMetricModal(); location.reload(); }, 800);
+    });
+});
+
+// Intelligence panel toggle
+function toggleIntelligence() {
+    const content = document.getElementById('intel-content');
+    const chevron = document.getElementById('intel-chevron');
+    const label = document.getElementById('intel-label');
+    if (content.style.display === 'none') {
+        content.style.display = '';
+        chevron.style.transform = '';
+        label.textContent = 'Collapse';
+    } else {
+        content.style.display = 'none';
+        chevron.style.transform = 'rotate(-90deg)';
+        label.textContent = 'Expand';
+    }
+}
+</script>
+{% endblock %}

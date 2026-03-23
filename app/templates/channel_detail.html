@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}{{ channel.name }}{% endblock %}
+{% block page_title %}{{ channel.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="/" class="text-xs text-mcc-accent hover:underline">&larr; Back to Dashboard</a>
+</div>
+
+<div class="grid grid-cols-12 gap-6">
+    <!-- Left: Channel Info + Charts -->
+    <div class="col-span-12 lg:col-span-8 space-y-6">
+        <!-- Channel Header Card -->
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-5">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <span class="health-dot health-{{ channel.health.value if channel.health else 'unknown' }}" style="width:12px;height:12px;"></span>
+                    <h2 class="text-xl font-semibold">{{ channel.name }}</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="px-2 py-1 rounded text-xs bg-mcc-bg capitalize">{{ channel.status.value }}</span>
+                    {% if channel.automation_level.value == 'full_auto' %}
+                    <span class="px-2 py-1 rounded text-xs bg-mcc-secondary/30">Full Auto</span>
+                    {% elif channel.automation_level.value == 'low_touch' %}
+                    <span class="px-2 py-1 rounded text-xs bg-mcc-warning/20 text-mcc-warning">Low Touch</span>
+                    {% else %}
+                    <span class="px-2 py-1 rounded text-xs bg-mcc-bg">Manual</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                    <span class="text-mcc-muted text-xs">Type:</span>
+                    <span class="ml-1 capitalize">{{ channel.channel_type.value.replace('_', ' ') }}</span>
+                </div>
+                <div>
+                    <span class="text-mcc-muted text-xs">Owner:</span>
+                    <span class="ml-1 capitalize">{{ channel.owner }}</span>
+                </div>
+                {% if channel.integration_key %}
+                <div>
+                    <span class="text-mcc-muted text-xs">Integration:</span>
+                    <span class="ml-1">{{ channel.integration_key }}</span>
+                </div>
+                {% endif %}
+                {% if channel.health_reason %}
+                <div class="col-span-2">
+                    <span class="text-mcc-muted text-xs">Health Note:</span>
+                    <span class="ml-1 text-mcc-warning">{{ channel.health_reason }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Metrics -->
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-5">
+            <h3 class="text-sm font-semibold mb-4">Metrics</h3>
+            {% if latest_metrics %}
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                {% for name, m in latest_metrics.items() %}
+                <div class="bg-mcc-bg rounded-lg p-3">
+                    <div class="text-xs text-mcc-muted mb-1">{{ name.replace('_', ' ').title() }}</div>
+                    <div class="text-xl font-bold font-mono">
+                        {{ "%.0f"|format(m.metric_value) if m.unit == 'count' else "%.1f"|format(m.metric_value) }}
+                        <span class="text-xs text-mcc-muted font-normal">{{ m.unit }}</span>
+                    </div>
+                    {% if m.previous_value is not none %}
+                    {% set delta = m.metric_value - m.previous_value %}
+                    <div class="text-xs mt-1 {% if delta > 0 %}text-mcc-success{% elif delta < 0 %}text-mcc-critical{% else %}text-mcc-muted{% endif %}">
+                        {% if delta > 0 %}&#9650; +{{ "%.0f"|format(delta) }}{% elif delta < 0 %}&#9660; {{ "%.0f"|format(delta) }}{% else %}&#8212; No change{% endif %}
+                        from previous
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-xs text-mcc-muted mb-4">No metrics recorded yet.</p>
+            {% endif %}
+
+            <!-- Metric Charts -->
+            {% for name, data in metric_history.items() %}
+            {% if data['values']|length > 1 %}
+            <div class="mb-4">
+                <h4 class="text-xs text-mcc-muted mb-2">{{ name.replace('_', ' ').title() }} History</h4>
+                <div style="height: 160px;">
+                    <canvas id="chart-{{ name }}" data-labels='{{ data['labels'] | tojson }}' data-values='{{ data['values'] | tojson }}'></canvas>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- Manual Metric Entry -->
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3">Record Metric</h3>
+            <form hx-post="/metrics/record" hx-target="#metric-result-detail" hx-swap="innerHTML" class="flex items-end gap-3">
+                <input type="hidden" name="channel_id" value="{{ channel.id }}">
+                <div class="flex-1">
+                    <label class="text-xs text-mcc-muted block mb-1">Metric Name</label>
+                    <input type="text" name="metric_name" placeholder="e.g. subscribers" class="mcc-input w-full" required>
+                </div>
+                <div class="w-28">
+                    <label class="text-xs text-mcc-muted block mb-1">Value</label>
+                    <input type="number" name="metric_value" step="0.01" class="mcc-input w-full" required>
+                </div>
+                <div class="w-24">
+                    <label class="text-xs text-mcc-muted block mb-1">Unit</label>
+                    <select name="unit" class="mcc-select w-full">
+                        <option value="count">Count</option>
+                        <option value="percent">Percent</option>
+                        <option value="dollars">Dollars</option>
+                        <option value="rate">Rate</option>
+                    </select>
+                </div>
+                <button type="submit" class="px-4 py-2 bg-mcc-accent text-white rounded-lg text-sm font-medium hover:bg-mcc-accent/80 transition-colors">
+                    Save
+                </button>
+            </form>
+            <div id="metric-result-detail" class="mt-2"></div>
+        </div>
+    </div>
+
+    <!-- Right: Actions + Tasks + Automations -->
+    <div class="col-span-12 lg:col-span-4 space-y-4">
+        <!-- Daily Actions -->
+        {% if channel.daily_actions %}
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-2">Daily Actions</h3>
+            <ul class="space-y-1.5">
+                {% for action in channel.daily_actions %}
+                <li class="flex items-start gap-2 text-xs">
+                    <span class="text-mcc-accent mt-0.5">&#8226;</span>
+                    <span>{{ action }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Auto Actions -->
+        {% if channel.auto_actions %}
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-2">Automated Actions</h3>
+            <ul class="space-y-1.5">
+                {% for action in channel.auto_actions %}
+                <li class="flex items-start gap-2 text-xs">
+                    <span class="text-mcc-success mt-0.5">&#9889;</span>
+                    <span>{{ action }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Related Tasks -->
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-2">Related Tasks</h3>
+            {% if tasks %}
+            <div class="space-y-2">
+                {% for task in tasks %}
+                <div class="flex items-start gap-2 py-1.5 border-b border-mcc-border/50 last:border-0">
+                    <span class="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0
+                        {% if task.priority.value == 'launch_critical' %}bg-mcc-critical{% elif task.priority.value == 'high' %}bg-mcc-warning{% else %}bg-mcc-muted{% endif %}"></span>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-medium truncate">{{ task.title }}</div>
+                        <div class="text-[10px] text-mcc-muted flex items-center gap-2">
+                            <span class="capitalize">{{ task.status.value.replace('_', ' ') }}</span>
+                            {% if task.due_date %}
+                            <span>Due {{ task.due_date.strftime('%b %d') }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-xs text-mcc-muted">No open tasks for this channel.</p>
+            {% endif %}
+        </div>
+
+        <!-- Related Automations -->
+        {% if automations %}
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-2">Automations</h3>
+            <div class="space-y-2">
+                {% for auto in automations %}
+                <div class="flex items-center gap-2 py-1.5 border-b border-mcc-border/50 last:border-0">
+                    <span class="health-dot health-{{ auto.health.value }}"></span>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-medium truncate">{{ auto.name }}</div>
+                        <div class="text-[10px] text-mcc-muted">{{ auto.platform }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('canvas[id^="chart-"]').forEach(function(canvas) {
+        const labels = JSON.parse(canvas.dataset.labels);
+        const values = JSON.parse(canvas.dataset.values);
+        new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    borderColor: '#06B6D4',
+                    backgroundColor: (function() {
+                        var ctx = canvas.getContext('2d');
+                        var g = ctx.createLinearGradient(0, 0, 0, 300);
+                        g.addColorStop(0, 'rgba(6, 182, 212, 0.15)');
+                        g.addColorStop(1, 'rgba(6, 182, 212, 0)');
+                        return g;
+                    })(),
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#06B6D4',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        ticks: { color: '#8B8B9E', font: { size: 10 } },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                    },
+                    y: {
+                        ticks: { color: '#8B8B9E', font: { size: 10 } },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                    }
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

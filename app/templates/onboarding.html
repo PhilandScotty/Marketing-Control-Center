@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Onboarding Journey{% endblock %}
+{% block page_title %}Onboarding Journey{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<!-- Summary -->
+<div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold">{{ milestones|length }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Milestones</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold">{{ total_subscribers }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Tracked Users</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        {% if funnel and funnel|length > 0 %}
+        {% set last_pct = funnel[-1]['pct'] %}
+        <div class="text-2xl font-bold {% if last_pct > 50 %}text-mcc-success{% elif last_pct > 20 %}text-mcc-warning{% else %}text-mcc-critical{% endif %}">
+            {{ last_pct }}%
+        </div>
+        {% else %}
+        <div class="text-2xl font-bold text-mcc-muted">--</div>
+        {% endif %}
+        <div class="text-[10px] text-mcc-muted uppercase">Final Milestone %</div>
+    </div>
+</div>
+
+<!-- Milestone Funnel -->
+<div class="bg-mcc-card rounded-lg border border-mcc-border p-4 mb-6">
+    <h3 class="text-sm font-semibold mb-4">Milestone Funnel</h3>
+    {% if funnel %}
+    <div class="space-y-4">
+        {% for f in funnel %}
+        <div>
+            <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-mcc-muted w-6 text-right font-mono">{{ f['milestone'].display_order }}</span>
+                    <span class="text-xs font-medium">{{ f['milestone'].name }}</span>
+                </div>
+                <div class="flex items-center gap-4 text-xs">
+                    <span class="text-mcc-muted">Target: Day {{ f['target_days'] }}</span>
+                    {% if f['avg_days'] %}
+                    <span class="font-mono {% if f['avg_days'] <= f['target_days'] %}text-mcc-success{% else %}text-mcc-warning{% endif %}">
+                        Avg: {{ f['avg_days'] }}d
+                    </span>
+                    {% endif %}
+                    <span class="font-mono font-bold">{{ f['completed'] }}/{{ f['tracked'] }}</span>
+                    <span class="font-mono w-12 text-right
+                        {% if f['pct'] >= 70 %}text-mcc-success
+                        {% elif f['pct'] >= 40 %}text-mcc-warning
+                        {% else %}text-mcc-critical{% endif %}">
+                        {{ f['pct'] }}%
+                    </span>
+                </div>
+            </div>
+            <div class="ml-9">
+                <div class="w-full bg-mcc-bg rounded-full h-3">
+                    <div class="h-3 rounded-full transition-all
+                        {% if f['pct'] >= 70 %}bg-mcc-success
+                        {% elif f['pct'] >= 40 %}bg-mcc-warning
+                        {% else %}bg-mcc-critical{% endif %}"
+                        style="width: {{ f['pct'] }}%"></div>
+                </div>
+            </div>
+            {% if f['milestone'].description %}
+            <div class="ml-9 text-[10px] text-mcc-muted mt-0.5">{{ f['milestone'].description }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-xs text-mcc-muted text-center py-8">
+        No onboarding data yet. Milestone tracking will populate when subscriber progress is recorded.
+    </p>
+    {% endif %}
+</div>
+
+<!-- Milestone Details Table -->
+<div class="bg-mcc-card rounded-lg border border-mcc-border overflow-hidden">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-mcc-border text-[10px] text-mcc-muted uppercase">
+                <th class="text-left py-3 px-4">#</th>
+                <th class="text-left py-3 px-4">Milestone</th>
+                <th class="text-left py-3 px-4">Description</th>
+                <th class="text-right py-3 px-4">Target Day</th>
+                <th class="text-right py-3 px-4">Completed</th>
+                <th class="text-right py-3 px-4">Completion %</th>
+                <th class="text-right py-3 px-4">Avg Days</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in funnel %}
+            <tr class="border-b border-mcc-border/30 hover:bg-mcc-bg/30">
+                <td class="py-3 px-4 text-xs font-mono text-mcc-muted">{{ f['milestone'].display_order }}</td>
+                <td class="py-3 px-4 text-xs font-medium">{{ f['milestone'].name }}</td>
+                <td class="py-3 px-4 text-xs text-mcc-muted truncate max-w-[250px]">{{ f['milestone'].description or '--' }}</td>
+                <td class="py-3 px-4 text-xs text-right font-mono">Day {{ f['target_days'] }}</td>
+                <td class="py-3 px-4 text-xs text-right font-mono">{{ f['completed'] }}</td>
+                <td class="py-3 px-4 text-xs text-right font-mono
+                    {% if f['pct'] >= 70 %}text-mcc-success
+                    {% elif f['pct'] >= 40 %}text-mcc-warning
+                    {% else %}text-mcc-critical{% endif %}">
+                    {{ f['pct'] }}%
+                </td>
+                <td class="py-3 px-4 text-xs text-right font-mono text-mcc-muted">
+                    {% if f['avg_days'] %}{{ f['avg_days'] }}d{% else %}--{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endif %}
+{% endblock %}

@@ -1,0 +1,56 @@
+<!-- Chat Messages View -->
+<div class="flex flex-col h-full">
+    <!-- Conversation Header -->
+    <div class="px-4 py-2 border-b border-mcc-border flex items-center gap-2 flex-shrink-0">
+        <button hx-get="/chat/panel" hx-target="#ai-chat-panel .flex.flex-col" hx-swap="outerHTML"
+                class="text-mcc-muted hover:text-mcc-text transition-colors" title="Back to list">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+        <span class="text-xs text-mcc-text truncate flex-1">{{ conversation.title }}</span>
+    </div>
+
+    <!-- Messages -->
+    <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+        {% for msg in messages %}
+        {% if msg.role.value == 'user' %}
+        <div class="flex justify-end">
+            <div class="max-w-[85%] px-3 py-2 rounded-lg bg-mcc-secondary text-sm text-mcc-text">
+                {{ msg.content }}
+            </div>
+        </div>
+        {% elif msg.role.value == 'assistant' %}
+        <div class="flex justify-start">
+            <div class="max-w-[85%] px-3 py-2 rounded-lg bg-mcc-card border border-mcc-border text-sm text-mcc-text whitespace-pre-wrap">{{ msg.content }}</div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Input -->
+    <div class="px-4 py-3 border-t border-mcc-border flex-shrink-0">
+        <form hx-post="/chat/send" hx-target="#chat-messages" hx-swap="beforeend"
+              hx-on::after-request="this.reset(); document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;"
+              class="flex gap-2">
+            <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
+            <input type="hidden" name="page_context" id="chat-page-context" value="">
+            <input type="text" name="message" placeholder="Ask anything about your marketing..."
+                   autocomplete="off"
+                   class="mcc-input flex-1 text-xs"
+                   {% if not ai_configured %}disabled{% endif %}>
+            <button type="submit"
+                    class="px-3 py-1.5 rounded bg-mcc-accent text-white text-xs font-medium hover:bg-mcc-accent/80 transition-colors disabled:opacity-50"
+                    {% if not ai_configured %}disabled{% endif %}>
+                Send
+            </button>
+        </form>
+    </div>
+</div>
+<script>
+    // Set page context from current URL
+    document.getElementById('chat-page-context').value = window.location.pathname;
+    // Auto-scroll to bottom
+    var chatMsgs = document.getElementById('chat-messages');
+    if (chatMsgs) chatMsgs.scrollTop = chatMsgs.scrollHeight;
+</script>

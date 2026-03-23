@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+{% block title %}Ad Campaigns{% endblock %}
+{% block page_title %}Ad Campaigns{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<div class="space-y-6">
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-5 gap-4">
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+            <div class="text-2xl font-bold">{{ active_count }}</div>
+            <div class="text-[10px] text-mcc-muted uppercase">Active</div>
+        </div>
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+            <div class="text-2xl font-bold font-mono">${{ "%.0f"|format(total_daily) }}</div>
+            <div class="text-[10px] text-mcc-muted uppercase">Daily Spend</div>
+        </div>
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+            <div class="text-2xl font-bold">{{ total_conversions }}</div>
+            <div class="text-[10px] text-mcc-muted uppercase">Conversions</div>
+        </div>
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+            <div class="text-2xl font-bold font-mono {% if blended_cpl > 10 %}text-mcc-warning{% elif blended_cpl > 0 %}text-mcc-success{% endif %}">${{ "%.2f"|format(blended_cpl) }}</div>
+            <div class="text-[10px] text-mcc-muted uppercase">Blended CPA</div>
+        </div>
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+            <div class="text-2xl font-bold font-mono">${{ "%.0f"|format(burn_rate) }}</div>
+            <div class="text-[10px] text-mcc-muted uppercase">Burn Rate/Day</div>
+        </div>
+    </div>
+
+    <!-- Prepare Campaign -->
+    <div class="bg-mcc-card rounded-lg border border-mcc-border overflow-hidden">
+        <div class="px-5 py-3 border-b border-mcc-border flex items-center justify-between">
+            <h2 class="text-sm font-semibold flex items-center gap-2">
+                <svg class="w-4 h-4 text-mcc-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                Prepare Campaign
+            </h2>
+            <div class="flex items-center gap-2">
+                {% for val, label in platforms %}
+                <button hx-get="/ads/prepare/{{ val }}"
+                        hx-target="#prepare-panel"
+                        hx-swap="innerHTML"
+                        class="text-[10px] px-2.5 py-1 rounded-lg bg-mcc-bg text-mcc-muted hover:text-mcc-accent hover:bg-mcc-accent/10 font-medium transition-colors border border-mcc-border">
+                    {{ label }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        <div id="prepare-panel" class="p-5">
+            <div class="text-center py-8">
+                <p class="text-xs text-mcc-muted">Select a platform above to start preparing a campaign brief</p>
+                <p class="text-[10px] text-mcc-dim mt-1">MCC will surface top organic posts, customer profile, and available budget</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Saved Briefs -->
+    {% if briefs %}
+    <div class="bg-mcc-card rounded-lg border border-mcc-border overflow-hidden">
+        <div class="px-5 py-3 border-b border-mcc-border">
+            <h2 class="text-sm font-semibold flex items-center gap-2">
+                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Saved Briefs
+                <span class="text-[10px] text-mcc-dim font-normal">({{ briefs|length }})</span>
+            </h2>
+        </div>
+        <div class="divide-y divide-mcc-border/50">
+            {% for brief in briefs %}
+            <div class="p-4">
+                <div class="flex items-start justify-between mb-2">
+                    <div>
+                        <div class="text-sm font-medium">{{ brief.title }}</div>
+                        <div class="text-[10px] text-mcc-muted flex items-center gap-2 mt-0.5">
+                            <span class="px-1.5 py-0.5 rounded bg-mcc-bg capitalize">{{ brief.platform.value.replace("_", " ") }}</span>
+                            <span>${{ "%.0f"|format(brief.recommended_budget|float) }} budget</span>
+                            <span>{{ brief.suggested_duration_days }}d duration</span>
+                            <span>{{ brief.created_at.strftime('%b %d') if brief.created_at else '' }}</span>
+                        </div>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 rounded
+                        {% if brief.status == 'active' %}bg-mcc-success/15 text-mcc-success
+                        {% elif brief.status == 'completed' %}bg-mcc-muted/15 text-mcc-muted
+                        {% else %}bg-mcc-bg text-mcc-muted{% endif %}">
+                        {{ brief.status|capitalize }}
+                    </span>
+                </div>
+                {% if brief.creative_text %}
+                <div class="bg-mcc-bg rounded-lg p-3 mb-2">
+                    <div class="text-[10px] text-mcc-muted uppercase tracking-wider mb-1">Creative</div>
+                    <div class="text-xs text-mcc-text whitespace-pre-wrap line-clamp-3">{{ brief.creative_text }}</div>
+                </div>
+                {% endif %}
+                {% if brief.targeting_notes %}
+                <div class="text-[10px] text-mcc-muted"><span class="font-medium">Targeting:</span> {{ brief.targeting_notes[:150] }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Campaign Tracker -->
+    <div class="bg-mcc-card rounded-lg border border-mcc-border overflow-hidden">
+        <div class="px-5 py-3 border-b border-mcc-border flex items-center justify-between">
+            <h2 class="text-sm font-semibold flex items-center gap-2">
+                <svg class="w-4 h-4 text-mcc-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                Campaign Tracker
+            </h2>
+            <button onclick="document.getElementById('add-campaign-modal').classList.remove('hidden')"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-mcc-accent/15 text-mcc-accent border border-mcc-accent/30 hover:bg-mcc-accent/25 text-xs font-medium transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add Campaign
+            </button>
+        </div>
+
+        {% if ad_data %}
+        <div class="divide-y divide-mcc-border/50">
+            {% for d in ad_data %}
+            {% set ad = d['ad'] %}
+            <div class="p-4">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="flex items-center gap-3 mb-1">
+                            <h4 class="text-sm font-semibold">{{ ad.campaign_name }}</h4>
+                            <!-- Signal Badge -->
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide
+                                {% if ad.signal.value == 'scale' %}bg-mcc-success/20 text-mcc-success
+                                {% elif ad.signal.value == 'hold' %}bg-mcc-muted/20 text-mcc-muted
+                                {% elif ad.signal.value == 'optimize' %}bg-mcc-warning/20 text-mcc-warning
+                                {% elif ad.signal.value == 'pause' %}bg-mcc-critical/20 text-mcc-critical
+                                {% elif ad.signal.value == 'kill' %}bg-mcc-critical text-white
+                                {% endif %}">
+                                {{ ad.signal.value|upper }}
+                            </span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded
+                                {% if ad.status.value == 'active' %}bg-mcc-success/15 text-mcc-success
+                                {% elif ad.status.value == 'paused' %}bg-mcc-warning/15 text-mcc-warning
+                                {% elif ad.status.value == 'ended' %}bg-mcc-muted/15 text-mcc-muted
+                                {% else %}bg-mcc-bg text-mcc-muted{% endif %}">
+                                {{ ad.status.value|capitalize }}
+                            </span>
+                            <!-- Pacing -->
+                            <span class="text-[9px] px-1.5 py-0.5 rounded
+                                {% if d.pacing == 'overspending' %}bg-mcc-critical/10 text-mcc-critical
+                                {% elif d.pacing == 'underspending' %}bg-mcc-warning/10 text-mcc-warning
+                                {% else %}bg-mcc-bg text-mcc-muted{% endif %}">
+                                {% if d.pacing == 'overspending' %}Overspending
+                                {% elif d.pacing == 'underspending' %}Underspending
+                                {% else %}On Track{% endif %}
+                            </span>
+                        </div>
+                        <div class="text-[10px] text-mcc-muted flex items-center gap-3">
+                            <span>{{ ad.platform.value.replace('_', ' ')|capitalize }}</span>
+                            <span>{{ d['channel_name'] }}</span>
+                            <span>{{ ad.objective.value|capitalize }}</span>
+                            <span>{{ ad.start_date.strftime('%b %d') }}{% if ad.end_date %} — {{ ad.end_date.strftime('%b %d') }}{% endif %}</span>
+                        </div>
+                    </div>
+                    <details class="text-xs relative">
+                        <summary class="cursor-pointer text-mcc-accent hover:underline text-[10px]">Update</summary>
+                        <div class="mt-2 bg-mcc-bg rounded-lg p-3 absolute right-0 z-10 border border-mcc-border w-80 shadow-xl">
+                            <form hx-post="/ads/campaign/{{ ad.id }}/update" hx-target="#update-result-{{ ad.id }}" hx-swap="innerHTML" class="space-y-2">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div><label class="text-[9px] text-mcc-muted">Spend ($)</label><input type="number" name="spend_to_date" value="{{ '%.2f'|format(ad.spend_to_date|float) }}" step="0.01" class="mcc-input w-full text-xs"></div>
+                                    <div><label class="text-[9px] text-mcc-muted">Impressions</label><input type="number" name="impressions" value="{{ ad.impressions or 0 }}" class="mcc-input w-full text-xs"></div>
+                                    <div><label class="text-[9px] text-mcc-muted">Clicks</label><input type="number" name="clicks" value="{{ ad.clicks or 0 }}" class="mcc-input w-full text-xs"></div>
+                                    <div><label class="text-[9px] text-mcc-muted">Conversions</label><input type="number" name="conversions" value="{{ ad.conversions or 0 }}" class="mcc-input w-full text-xs"></div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <select name="status" class="mcc-select text-xs">
+                                        <option value="">No change</option>
+                                        <option value="active">Active</option>
+                                        <option value="paused">Paused</option>
+                                        <option value="ended">Ended</option>
+                                    </select>
+                                    <button type="submit" class="mcc-btn-primary text-xs px-3 py-1">Save</button>
+                                </div>
+                                <div id="update-result-{{ ad.id }}"></div>
+                            </form>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- Metrics Grid -->
+                <div class="grid grid-cols-8 gap-3 text-xs">
+                    <div class="bg-mcc-bg rounded p-2">
+                        <div class="text-[10px] text-mcc-muted">Spend</div>
+                        <div class="font-mono font-medium">${{ "%.0f"|format(ad.spend_to_date|float) }}</div>
+                        {% if ad.total_budget %}
+                        <div class="text-[9px] text-mcc-muted">of ${{ "%.0f"|format(ad.total_budget|float) }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="bg-mcc-bg rounded p-2">
+                        <div class="text-[10px] text-mcc-muted">Daily</div>
+                        <div class="font-mono font-medium">${{ "%.0f"|format(ad.daily_budget|float) }}</div>
+                    </div>
+                    <div class="bg-mcc-bg rounded p-2">
+                        <div class="text-[10px] text-mcc-muted">Impressions</div>
+                        <div class="font-mono font-medium">{{ "{:,}".format(ad.impressions or 0) }}</div>
+                    </div>
+                    <div class="bg-mcc-bg rounded p-2">
+                        <div class="text-[10px] text-mcc-muted">Clicks</div>
+                        <div class="font-mono font-medium">{{ "{:,}".format(ad.clicks or 0) }}</div>
+                    </div>
+                    <div class="bg-mcc-bg rounded p-2">
+                        <div class="text-[10px] text-mcc-muted">CTR</div>
+                        <div class="font-mono font-medium {% if (ad.ctr|float) < 0.5 %}text-mcc-critical{% elif (ad.ctr|float) > 2 %}text-mcc-success{% endif %}">
+                            {{ "%.2f"|format(ad.ctr|float) }}%
+                        </div>
+                    </div>
+                    <div class="bg-mcc-bg rounded p-2">
+                        <div class="text-[10px] text-mcc-muted">Conversions</div>
+                        <div class="font-mono font-medium">{{ ad.conversions or 0 }}</div>
+                    </div>
+                    <div class="bg-mcc-bg rounded p-2">
+                        <div class="text-[10px] text-mcc-muted">CPA</div>
+                        <div class="font-mono font-medium {% if d.cpa_status == 'high' %}text-mcc-critical{% elif d.cpa_status == 'good' %}text-mcc-success{% endif %}">
+                            {% if ad.cpl %}${{ "%.2f"|format(ad.cpl|float) }}{% else %}--{% endif %}
+                        </div>
+                        <div class="text-[9px] text-mcc-muted">vs ${{ "%.0f"|format(10) }} target</div>
+                    </div>
+                    <div class="bg-mcc-bg rounded p-2">
+                        <div class="text-[10px] text-mcc-muted">ROAS</div>
+                        <div class="font-mono font-medium">
+                            {% if ad.roas %}{{ "%.1f"|format(ad.roas|float) }}x{% else %}--{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Budget Progress + Signal Reason -->
+                <div class="flex items-end gap-4 mt-3">
+                    {% if ad.total_budget and (ad.total_budget|float) > 0 %}
+                    {% set budget_pct = ((ad.spend_to_date|float) / (ad.total_budget|float) * 100)|int %}
+                    <div class="flex-1">
+                        <div class="w-full bg-mcc-bg rounded-full h-1.5">
+                            <div class="h-1.5 rounded-full {% if budget_pct > 90 %}bg-mcc-critical{% elif budget_pct > 70 %}bg-mcc-warning{% else %}bg-mcc-accent{% endif %}"
+                                 style="width: {{ [budget_pct, 100]|min }}%"></div>
+                        </div>
+                        <div class="text-[9px] text-mcc-muted mt-0.5">{{ budget_pct }}% budget</div>
+                    </div>
+                    {% endif %}
+                    {% if d.reason %}
+                    <div class="text-[10px] text-mcc-muted italic flex-shrink-0">{{ d.reason[:80] }}</div>
+                    {% endif %}
+                </div>
+
+                {% if ad.creative_notes %}
+                <div class="text-[10px] text-mcc-dim mt-2">Creative: {{ ad.creative_notes[:100] }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-mcc-muted text-xs">No campaigns yet. Add one or prepare a brief above.</div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- Add Campaign Modal -->
+<div id="add-campaign-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-lg p-6 shadow-2xl" onclick="event.stopPropagation()" style="box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+        <div class="flex items-center justify-between mb-5">
+            <h3 class="font-semibold text-sm">Add Campaign</h3>
+            <button onclick="this.closest('#add-campaign-modal').classList.add('hidden')" class="text-mcc-muted hover:text-mcc-text transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form hx-post="/ads/campaign/add" hx-target="#add-campaign-result" hx-swap="innerHTML" class="space-y-4">
+            <div>
+                <label class="block text-xs text-mcc-muted mb-1">Campaign Name</label>
+                <input type="text" name="campaign_name" required class="mcc-input w-full" placeholder="e.g. Leak Finder Quiz - Cold Traffic">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-mcc-muted mb-1">Platform</label>
+                    <select name="platform" required class="mcc-select w-full">
+                        {% for val, label in platforms %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-mcc-muted mb-1">Channel</label>
+                    <select name="channel_id" class="mcc-select w-full">
+                        <option value="0">Select channel</option>
+                        {% for ch in channels %}
+                        <option value="{{ ch.id }}">{{ ch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs text-mcc-muted mb-1">Objective</label>
+                    <select name="objective" class="mcc-select w-full">
+                        <option value="traffic">Traffic</option>
+                        <option value="conversions">Conversions</option>
+                        <option value="awareness">Awareness</option>
+                        <option value="retargeting">Retargeting</option>
+                        <option value="engagement">Engagement</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-mcc-muted mb-1">Daily Budget ($)</label>
+                    <input type="number" name="daily_budget" step="1" value="15" class="mcc-input w-full">
+                </div>
+                <div>
+                    <label class="block text-xs text-mcc-muted mb-1">Total Budget ($)</label>
+                    <input type="number" name="total_budget" step="1" value="450" class="mcc-input w-full">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-mcc-muted mb-1">Start Date</label>
+                    <input type="date" name="start_date" required class="mcc-input w-full" value="{{ today }}">
+                </div>
+                <div>
+                    <label class="block text-xs text-mcc-muted mb-1">End Date</label>
+                    <input type="date" name="end_date" class="mcc-input w-full">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-mcc-muted mb-1">Creative Notes</label>
+                <textarea name="creative_notes" rows="2" class="mcc-input w-full resize-none" placeholder="Creative description, ad copy..."></textarea>
+            </div>
+            <div id="add-campaign-result"></div>
+            <button type="submit" class="w-full py-2 rounded-lg text-sm font-medium bg-mcc-accent text-white hover:bg-mcc-accent/80 transition-colors">
+                Add Campaign
+            </button>
+        </form>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}

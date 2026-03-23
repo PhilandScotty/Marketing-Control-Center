@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MCC{% endblock %} — Marketing Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/custom.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        mcc: {
+                            bg: '#0B0B1A',
+                            surface: '#12122A',
+                            card: '#16162E',
+                            'card-hover': '#1A1A36',
+                            border: '#1E1E3A',
+                            'border-hover': '#2A2A4E',
+                            accent: '#06B6D4',
+                            secondary: '#164E63',
+                            text: '#E8E8F0',
+                            muted: '#6B6B8A',
+                            dim: '#3A3A5A',
+                            success: '#10B981',
+                            warning: '#F59E0B',
+                            critical: '#EF4444',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    borderRadius: {
+                        'card': '12px',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full bg-mcc-bg text-mcc-text font-sans">
+    <div class="flex h-full">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-60 flex flex-col h-screen fixed left-0 top-0 z-30 overflow-y-auto">
+            <!-- Logo -->
+            <div class="px-4 py-4 border-b border-mcc-border/50">
+                <div class="flex items-center gap-3">
+                    <div class="sidebar-logo-mark">M</div>
+                    <div>
+                        <div class="font-semibold text-sm tracking-tight">MCC</div>
+                        <div class="text-[11px] text-mcc-muted">{{ project.name if project else 'No Project' }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="flex-1 px-3 py-3 space-y-1">
+                <!-- Operations -->
+                <div class="nav-section">
+                    <div class="nav-section-label">Operations</div>
+                    <div class="space-y-0.5">
+                        <a href="/" class="nav-item {% if current_page == 'dashboard' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                            <span>Dashboard</span>
+                        </a>
+                        <a href="/daily" class="nav-item {% if current_page == 'daily' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                            <span>Daily Ops</span>
+                        </a>
+                        <a href="/queue" class="nav-item {% if current_page == 'queue' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                            <span class="flex-1">Queue</span>
+                            <span hx-get="/queue/badge" hx-trigger="load" hx-swap="innerHTML"></span>
+                        </a>
+                        <a href="/calendar" class="nav-item {% if current_page == 'calendar' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <span>Calendar</span>
+                        </a>
+                        <a href="/roadmap" class="nav-item {% if current_page == 'roadmap' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+                            <span>Roadmap</span>
+                        </a>
+                        <a href="/weekly" class="nav-item {% if current_page == 'weekly' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                            <span>Weekly Review</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Execution -->
+                <div class="nav-section">
+                    <div class="nav-section-label">Execution</div>
+                    <div class="space-y-0.5">
+                        <a href="/tasks" class="nav-item {% if current_page == 'tasks' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                            <span>Tasks</span>
+                        </a>
+                        <a href="/pipelines/content" class="nav-item {% if current_page == 'content' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>
+                            <span>Content</span>
+                        </a>
+                        <a href="/pipelines/outreach" class="nav-item {% if current_page == 'outreach' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                            <span>Outreach</span>
+                        </a>
+                        <a href="/ads" class="nav-item {% if current_page == 'ads' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+                            <span>Ads</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Intelligence -->
+                <div class="nav-section">
+                    <div class="nav-section-label">Intelligence</div>
+                    <div class="space-y-0.5">
+                        <a href="/whats-working" class="nav-item {% if current_page == 'whats_working' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                            <span>What's Working</span>
+                        </a>
+                        <a href="/subscribers" class="nav-item {% if current_page == 'subscribers' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                            <span>Subscribers</span>
+                        </a>
+                        <a href="/pipelines/onboarding" class="nav-item {% if current_page == 'onboarding' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            <span>Onboarding</span>
+                        </a>
+                        <a href="/experiments" class="nav-item {% if current_page == 'experiments' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                            <span>Experiments</span>
+                        </a>
+                        <a href="/feedback" class="nav-item {% if current_page == 'feedback' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                            <span>Feedback</span>
+                        </a>
+                        <a href="/competitors" class="nav-item {% if current_page == 'competitors' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            <span>Competitors</span>
+                        </a>
+                        <a href="/retention" class="nav-item {% if current_page == 'retention' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            <span>Retention</span>
+                        </a>
+                        <a href="/intelligence" class="nav-item {% if current_page == 'intelligence' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <span>Intelligence</span>
+                        </a>
+                        <a href="/rd-lab" class="nav-item {% if current_page == 'rd_lab' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                            <span>R&D Lab</span>
+                        </a>
+                        <a href="/website" class="nav-item {% if current_page == 'website' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                            <span>Website</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- System -->
+                <div class="nav-section">
+                    <div class="nav-section-label">System</div>
+                    <div class="space-y-0.5">
+                        <a href="/strategy" class="nav-item {% if current_page == 'strategy' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                            <span>Strategy</span>
+                        </a>
+                        <a href="/strategy-export" class="nav-item {% if current_page == 'strategy_export' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <span>Strategy Export</span>
+                        </a>
+                        <a href="/brand" class="nav-item {% if current_page == 'brand' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                            <span>Brand</span>
+                        </a>
+                        <a href="/channels" class="nav-item {% if current_page == 'channels' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                            <span>Channels</span>
+                        </a>
+                        <a href="/automations" class="nav-item {% if current_page == 'automations' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
+                            <span>Automations</span>
+                        </a>
+                        <a href="/tools" class="nav-item {% if current_page == 'tools' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                            <span>Connected Tools</span>
+                        </a>
+                        <a href="/pipelines/email" class="nav-item {% if current_page == 'email' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                            <span>Sequences</span>
+                        </a>
+                        <a href="/techstack" class="nav-item {% if current_page == 'techstack' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <span>Tech Stack</span>
+                        </a>
+                        <a href="/budget" class="nav-item {% if current_page == 'budget' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                            <span>Budget</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Global -->
+                <div class="nav-section">
+                    <div class="nav-section-label">Global</div>
+                    <div class="space-y-0.5">
+                        <a href="/knowledge" class="nav-item {% if current_page == 'knowledge' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                            <span>Knowledge Base</span>
+                        </a>
+                        <a href="/templates" class="nav-item {% if current_page == 'templates' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
+                            <span>Templates</span>
+                        </a>
+                        <a href="/wizard" class="nav-item {% if current_page == 'projects' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                            <span>New Project</span>
+                        </a>
+                        <a href="/partners" class="nav-item {% if current_page == 'partners' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                            <span>Partners</span>
+                        </a>
+                        <a href="/settings" class="nav-item {% if current_page == 'settings' %}active{% endif %}">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <span>Remote Ops</span>
+                        </a>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Sidebar Footer -->
+            <div class="sidebar-footer px-4 py-3">
+                <div class="flex items-center gap-2 text-[11px] text-mcc-muted">
+                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-mcc-success" style="box-shadow: 0 0 6px rgba(16,185,129,0.5)"></span>
+                    <span>System Online</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 ml-60 flex flex-col h-screen">
+            <!-- Top Bar -->
+            <header class="mcc-topbar h-13 flex items-center justify-between px-6 flex-shrink-0" style="height: 52px;">
+                <div class="flex items-center gap-4">
+                    <h1 class="text-[15px] font-semibold tracking-tight">{% block page_title %}Dashboard{% endblock %}</h1>
+                    {% if project and project.launch_date %}
+                    {% set days_to_launch = (project.launch_date - today).days if today else '?' %}
+                    <span class="launch-badge">
+                        T-{{ days_to_launch }}d
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="flex items-center gap-2">
+                    <!-- Global Search -->
+                    <button onclick="document.getElementById('search-overlay').classList.remove('hidden'); document.getElementById('global-search-input').focus();"
+                            class="quick-action-btn" title="Search (/)">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <kbd class="text-[9px] text-mcc-dim font-mono">/</kbd>
+                    </button>
+                    <!-- Quick Actions -->
+                    <button onclick="window.location.href='/tasks/'" class="quick-action-btn" title="Tasks (T)">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        <span>Task</span>
+                    </button>
+                    <button onclick="window.location.href='/pipelines/content'" class="quick-action-btn" title="Content (C)">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        <span>Content</span>
+                    </button>
+                    <button onclick="openTrackModal()" class="quick-action-btn" title="Track Something" style="color: #10B981;">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        <span>Track</span>
+                    </button>
+                    <div class="w-px h-5 bg-mcc-border mx-0.5"></div>
+                    <!-- AI Chat Toggle -->
+                    <button id="ai-chat-toggle" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-mcc-secondary/60 text-mcc-accent border border-mcc-accent/20 hover:bg-mcc-secondary/80 hover:border-mcc-accent/40 transition-all" title="AI Chat (Ctrl+Space)">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                        AI
+                    </button>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="flex-1 overflow-y-auto p-6" id="main-content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- AI Chat Panel -->
+    <div id="ai-chat-panel" class="hidden fixed top-0 right-0 h-screen z-50" style="width: 38%;">
+        <div hx-get="/chat/panel" hx-trigger="load" hx-swap="innerHTML"
+             class="h-full flex flex-col">
+            <div class="flex items-center justify-center h-full text-mcc-muted text-xs">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Search Overlay -->
+    <div id="search-overlay" class="hidden fixed inset-0 mcc-backdrop z-50 flex items-start justify-center pt-24">
+        <div class="w-full max-w-lg bg-mcc-card border border-mcc-border rounded-xl shadow-2xl overflow-hidden" style="box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(6,182,212,0.05);">
+            <div class="px-4 py-3 border-b border-mcc-border flex items-center gap-3">
+                <svg class="w-4 h-4 text-mcc-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input type="text" id="global-search-input" placeholder="Search everything..."
+                       class="w-full bg-transparent text-sm text-mcc-text outline-none placeholder-mcc-muted"
+                       hx-get="/search/" hx-trigger="keyup changed delay:200ms" hx-target="#search-results"
+                       hx-swap="innerHTML" name="q" autocomplete="off">
+            </div>
+            <div id="search-results" class="max-h-96 overflow-y-auto">
+                <div class="text-xs text-mcc-muted text-center py-6">Type to search across all entities...</div>
+            </div>
+            <div class="px-4 py-2 border-t border-mcc-border flex items-center gap-4 text-[10px] text-mcc-dim">
+                <span><kbd class="px-1 py-0.5 rounded bg-mcc-bg border border-mcc-border font-mono">/</kbd> search</span>
+                <span><kbd class="px-1 py-0.5 rounded bg-mcc-bg border border-mcc-border font-mono">Esc</kbd> close</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Help -->
+    <div id="shortcuts-help" class="hidden fixed inset-0 mcc-backdrop z-50 flex items-center justify-center" onclick="this.classList.add('hidden')">
+        <div class="bg-mcc-card border border-mcc-border rounded-xl shadow-2xl p-6 w-80" onclick="event.stopPropagation()" style="box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-semibold text-sm">Keyboard Shortcuts</h3>
+                <button onclick="document.getElementById('shortcuts-help').classList.add('hidden')" class="text-mcc-muted hover:text-mcc-text transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="space-y-2.5 text-xs">
+                <div class="flex justify-between items-center"><span class="text-mcc-muted">Search</span><kbd class="px-1.5 py-0.5 rounded bg-mcc-bg border border-mcc-border font-mono text-mcc-dim">/</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-mcc-muted">AI Chat</span><kbd class="px-1.5 py-0.5 rounded bg-mcc-bg border border-mcc-border font-mono text-mcc-dim">Ctrl+Space</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-mcc-muted">Dashboard</span><kbd class="px-1.5 py-0.5 rounded bg-mcc-bg border border-mcc-border font-mono text-mcc-dim">H</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-mcc-muted">Tasks</span><kbd class="px-1.5 py-0.5 rounded bg-mcc-bg border border-mcc-border font-mono text-mcc-dim">T</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-mcc-muted">Daily Ops</span><kbd class="px-1.5 py-0.5 rounded bg-mcc-bg border border-mcc-border font-mono text-mcc-dim">D</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-mcc-muted">Content</span><kbd class="px-1.5 py-0.5 rounded bg-mcc-bg border border-mcc-border font-mono text-mcc-dim">C</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-mcc-muted">Roadmap</span><kbd class="px-1.5 py-0.5 rounded bg-mcc-bg border border-mcc-border font-mono text-mcc-dim">R</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-mcc-muted">Close / Cancel</span><kbd class="px-1.5 py-0.5 rounded bg-mcc-bg border border-mcc-border font-mono text-mcc-dim">Esc</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-mcc-muted">This help</span><kbd class="px-1.5 py-0.5 rounded bg-mcc-bg border border-mcc-border font-mono text-mcc-dim">?</kbd></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Track Something Modal -->
+    <div id="track-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)closeTrackModal()">
+        <div class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-md max-h-[85vh] overflow-y-auto p-6 shadow-2xl" onclick="event.stopPropagation()">
+            <div id="track-wizard-content" hx-get="/track/wizard" hx-trigger="load" hx-swap="innerHTML">
+                <div class="flex items-center justify-center h-32 text-mcc-muted text-xs">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function openTrackModal() {
+        var modal = document.getElementById('track-modal-backdrop');
+        modal.classList.remove('hidden');
+        htmx.ajax('GET', '/track/wizard', '#track-wizard-content');
+    }
+    function closeTrackModal() {
+        document.getElementById('track-modal-backdrop').classList.add('hidden');
+    }
+    </script>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

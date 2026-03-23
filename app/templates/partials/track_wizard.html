@@ -1,0 +1,282 @@
+{% if step == 1 %}
+<!-- Step 1: What are you tracking? -->
+<div class="space-y-4">
+    <div class="flex items-center justify-between">
+        <h3 class="text-sm font-semibold">What are you tracking?</h3>
+        <button onclick="closeTrackModal()" class="text-mcc-muted hover:text-mcc-text p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    </div>
+    <p class="text-xs text-mcc-muted">Choose the type of thing you want to start tracking in MCC.</p>
+
+    <div class="grid grid-cols-1 gap-2">
+        {% for et in entity_types %}
+        <button hx-get="/track/wizard/step2/{{ et.key }}" hx-target="#track-wizard-content" hx-swap="innerHTML"
+                class="flex items-center gap-3 p-3 bg-mcc-bg rounded-lg border border-mcc-border hover:border-mcc-accent/40 transition-all text-left group">
+            <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background: {{ et.color }}20; color: {{ et.color }}">
+                <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="{{ et.icon }}"/>
+                </svg>
+            </div>
+            <div>
+                <span class="text-xs font-semibold group-hover:text-mcc-accent transition-colors">{{ et.label }}</span>
+                <p class="text-[10px] text-mcc-muted">{{ et.description }}</p>
+            </div>
+        </button>
+        {% endfor %}
+    </div>
+
+    <!-- Stop Tracking link -->
+    <div class="pt-3 border-t border-mcc-border">
+        <button hx-get="/track/stop" hx-target="#track-wizard-content" hx-swap="innerHTML"
+                class="text-xs text-mcc-muted hover:text-mcc-critical transition-colors">
+            Stop tracking something &rarr;
+        </button>
+    </div>
+</div>
+
+{% elif step == 2 %}
+<!-- Step 2: Entity-specific fields -->
+<div class="space-y-4">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <button hx-get="/track/wizard" hx-target="#track-wizard-content" hx-swap="innerHTML"
+                    class="text-mcc-muted hover:text-mcc-text">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <h3 class="text-sm font-semibold">Track {{ entity_info.label if entity_info else entity_type|title }}</h3>
+        </div>
+        <button onclick="closeTrackModal()" class="text-mcc-muted hover:text-mcc-text p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    </div>
+
+    <form hx-post="/track/create" hx-target="#track-wizard-content" hx-swap="innerHTML">
+        <input type="hidden" name="entity_type" value="{{ entity_type }}">
+
+        <div class="space-y-3">
+            {% if entity_type == "channel" %}
+            <!-- Channel Fields -->
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Channel Name</label>
+                <input type="text" name="name" class="mcc-input w-full" required placeholder="e.g. Instagram Reels">
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Type</label>
+                <select name="channel_type" class="mcc-select w-full">
+                    {% for val, label in channel_types %}
+                    <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Starting Status</label>
+                <select name="status" class="mcc-select w-full">
+                    <option value="planned">Planned</option>
+                    <option value="building">Building</option>
+                    <option value="live">Live</option>
+                </select>
+            </div>
+
+            {% elif entity_type == "metric" %}
+            <!-- Metric Fields -->
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Metric Name</label>
+                <input type="text" name="name" class="mcc-input w-full" required placeholder="e.g. Monthly Active Users">
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Channel</label>
+                <select name="channel_id" class="mcc-select w-full" required>
+                    <option value="">Select a channel...</option>
+                    {% for ch in channels %}
+                    <option value="{{ ch.id }}">{{ ch.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Initial Value</label>
+                    <input type="number" name="initial_value" class="mcc-input w-full" value="0" step="any">
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Unit</label>
+                    <input type="text" name="unit" class="mcc-input w-full" value="count" placeholder="count, $, %, etc.">
+                </div>
+            </div>
+
+            {% elif entity_type == "tool" %}
+            <!-- Tool Fields -->
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Tool Name</label>
+                <input type="text" name="name" class="mcc-input w-full" required placeholder="e.g. Phantombuster">
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Category</label>
+                <select name="category" class="mcc-select w-full">
+                    {% for val, label in tool_categories %}
+                    <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Purpose</label>
+                <input type="text" name="purpose" class="mcc-input w-full" placeholder="What does it do for you?">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Monthly Cost ($)</label>
+                    <input type="number" name="monthly_cost" class="mcc-input w-full" value="0" step="0.01">
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Billing</label>
+                    <select name="billing_cycle" class="mcc-select w-full">
+                        <option value="monthly">Monthly</option>
+                        <option value="annual">Annual</option>
+                        <option value="free">Free</option>
+                        <option value="one_time">One-Time</option>
+                        <option value="usage_based">Usage Based</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Status</label>
+                <select name="status" class="mcc-select w-full">
+                    <option value="active">Active</option>
+                    <option value="evaluating">Evaluating</option>
+                    <option value="planned">Planned</option>
+                </select>
+            </div>
+
+            {% elif entity_type == "content" %}
+            <!-- Content Fields -->
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Title</label>
+                <input type="text" name="name" class="mcc-input w-full" required placeholder="e.g. Room Report #2 — Ignition">
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Content Type</label>
+                <select name="content_type" class="mcc-select w-full">
+                    {% for val, label in content_types %}
+                    <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Due Date</label>
+                    <input type="date" name="due_date" class="mcc-input w-full">
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Assigned To</label>
+                    <input type="text" name="assigned_to" class="mcc-input w-full" value="phil">
+                </div>
+            </div>
+
+            {% elif entity_type == "ad" %}
+            <!-- Ad Campaign Fields -->
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Campaign Name</label>
+                <input type="text" name="name" class="mcc-input w-full" required placeholder="e.g. Reddit Launch Awareness">
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Platform</label>
+                <select name="platform" class="mcc-select w-full">
+                    {% for val, label in ad_platforms %}
+                    <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Daily Budget ($)</label>
+                    <input type="number" name="daily_budget" class="mcc-input w-full" value="10" step="0.01">
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Objective</label>
+                    <select name="objective" class="mcc-select w-full">
+                        <option value="traffic">Traffic</option>
+                        <option value="conversions">Conversions</option>
+                        <option value="awareness">Awareness</option>
+                        <option value="engagement">Engagement</option>
+                        <option value="retargeting">Retargeting</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Start Date</label>
+                <input type="date" name="start_date" class="mcc-input w-full">
+            </div>
+
+            {% elif entity_type == "automation" %}
+            <!-- Automation Fields -->
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Automation Name</label>
+                <input type="text" name="name" class="mcc-input w-full" required placeholder="e.g. Welcome Email Sequence Trigger">
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Type</label>
+                <select name="automation_type" class="mcc-select w-full">
+                    {% for val, label in automation_types %}
+                    <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Platform/Tool</label>
+                <input type="text" name="platform" class="mcc-input w-full" placeholder="e.g. n8n, Zapier, crontab">
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Schedule</label>
+                <input type="text" name="schedule" class="mcc-input w-full" placeholder="e.g. Every 6 hours, On signup, Daily at 9am">
+            </div>
+
+            {% elif entity_type == "contact" %}
+            <!-- Outreach Contact Fields -->
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Name</label>
+                <input type="text" name="name" class="mcc-input w-full" required placeholder="e.g. Jonathan Little">
+            </div>
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Platform</label>
+                <input type="text" name="platform_name" class="mcc-input w-full" placeholder="e.g. YouTube, Instagram, Twitter">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Contact Type</label>
+                    <select name="contact_type" class="mcc-select w-full">
+                        {% for val, label in contact_types %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Audience Size</label>
+                    <input type="number" name="audience_size" class="mcc-input w-full" placeholder="e.g. 50000">
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Common: Notes -->
+            <div>
+                <label class="text-xs text-mcc-muted block mb-1">Notes</label>
+                <textarea name="notes" class="mcc-input w-full h-14 resize-none" placeholder="Any additional context..."></textarea>
+            </div>
+
+            <!-- Step 4: Setup tasks -->
+            <div class="pt-3 border-t border-mcc-border">
+                <label class="text-xs text-mcc-muted block mb-1">Setup tasks needed? <span class="text-mcc-dim">(one per line)</span></label>
+                <textarea name="setup_tasks" class="mcc-input w-full h-16 resize-none text-xs"
+                          placeholder="e.g.&#10;Connect API key&#10;Set up tracking pixel&#10;Create initial campaign"></textarea>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-4 pt-4 border-t border-mcc-border">
+            <button type="button" hx-get="/track/wizard" hx-target="#track-wizard-content" hx-swap="innerHTML"
+                    class="px-4 py-2 text-sm text-mcc-muted border border-mcc-border rounded-lg hover:bg-mcc-border/50">Back</button>
+            <button type="submit" class="px-4 py-2 bg-mcc-accent text-white rounded-lg text-sm font-medium hover:bg-mcc-accent/80">
+                Start Tracking
+            </button>
+        </div>
+    </form>
+</div>
+{% endif %}

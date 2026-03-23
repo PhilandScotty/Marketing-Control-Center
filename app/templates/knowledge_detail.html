@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ entry.title }}{% endblock %}
+{% block page_title %}Knowledge Entry{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl space-y-6">
+    <div class="flex items-center gap-2 text-xs text-mcc-muted">
+        <a href="/knowledge" class="hover:text-mcc-text">&larr; Knowledge Base</a>
+        <span>/</span>
+        <span>{{ entry.entry_type.value|replace('_', ' ')|title }}</span>
+    </div>
+
+    <div class="bg-mcc-card border border-mcc-border rounded-lg p-6">
+        <div class="flex items-start justify-between mb-4">
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <h2 class="text-lg font-semibold">{{ entry.title }}</h2>
+                    {% if not entry.confirmed %}
+                    <button hx-post="/knowledge/{{ entry.id }}/confirm" hx-swap="outerHTML"
+                            class="px-2 py-0.5 rounded text-[10px] bg-mcc-warning/20 text-mcc-warning hover:bg-mcc-warning/40 cursor-pointer">
+                        Unconfirmed — Click to confirm
+                    </button>
+                    {% else %}
+                    <span class="px-1.5 py-0.5 rounded text-[10px] bg-mcc-success/20 text-mcc-success">Confirmed</span>
+                    {% endif %}
+                </div>
+                <div class="text-[10px] text-mcc-muted">
+                    {{ entry.entry_type.value|replace('_', ' ')|title }}
+                    {% if entry.source_project %} &middot; From: {{ entry.source_project }}{% endif %}
+                    {% if entry.auto_generated %} &middot; AI-generated{% endif %}
+                    &middot; Created {{ entry.created_at.strftime('%b %d, %Y') }}
+                    {% if entry.updated_at %} &middot; Updated {{ entry.updated_at.strftime('%b %d, %Y') }}{% endif %}
+                </div>
+            </div>
+            <form method="post" action="/knowledge/{{ entry.id }}/delete"
+                  onsubmit="return confirm('Delete this entry?')">
+                <button type="submit" class="text-xs text-red-400 hover:text-red-300">Delete</button>
+            </form>
+        </div>
+
+        <!-- Edit Form -->
+        <form method="post" action="/knowledge/{{ entry.id }}/update" class="space-y-4">
+            <input type="text" name="title" value="{{ entry.title }}" class="mcc-input w-full text-sm font-medium">
+            <textarea name="body" rows="12" class="mcc-input w-full text-xs font-mono">{{ entry.body }}</textarea>
+            <input type="text" name="tags" value="{{ entry.tags|join(', ') if entry.tags else '' }}"
+                   placeholder="Tags (comma-separated)" class="mcc-input w-full text-xs">
+            <div class="flex justify-end">
+                <button type="submit" class="px-4 py-2 rounded text-xs bg-mcc-accent text-white hover:bg-mcc-accent/80">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

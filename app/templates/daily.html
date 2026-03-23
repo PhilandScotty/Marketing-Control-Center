@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% block title %}Daily Ops{% endblock %}
+{% block page_title %}Daily Ops{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<div class="grid grid-cols-12 gap-6">
+    <!-- Left: Tasks + Actions -->
+    <div class="col-span-12 xl:col-span-8 space-y-6">
+
+        <!-- Overdue -->
+        {% if overdue_tasks %}
+        <div class="bg-mcc-critical/5 border border-mcc-critical/30 rounded-card p-4">
+            <h3 class="text-sm font-semibold text-mcc-critical mb-3 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-mcc-critical animate-pulse"></span>
+                Overdue ({{ overdue_tasks|length }})
+            </h3>
+            <div class="space-y-2">
+                {% for task in overdue_tasks %}
+                <div class="flex items-center justify-between py-1.5 border-b border-mcc-critical/10 last:border-0">
+                    <div class="flex items-center gap-3">
+                        <button class="w-4 h-4 rounded border border-mcc-critical/50 hover:bg-mcc-critical/20 flex-shrink-0 transition-colors"
+                                hx-post="/daily/complete/{{ task.id }}" hx-target="closest div" hx-swap="innerHTML"></button>
+                        <div>
+                            <span class="text-xs font-medium">{{ task.title }}</span>
+                            <div class="text-[10px] text-mcc-muted flex items-center gap-2">
+                                <span class="text-mcc-critical">{{ (today - task.due_date).days }}d overdue</span>
+                                {% if task.assigned_to %}<span>{{ task.assigned_to|capitalize }}</span>{% endif %}
+                                {% if task.priority.value == 'launch_critical' %}<span class="text-mcc-critical font-semibold">LAUNCH CRITICAL</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <span class="text-[10px] text-mcc-muted">Due {{ task.due_date.strftime('%b %d') }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Outreach Alerts -->
+        {% if new_responses or followups_due %}
+        <div class="bg-purple-500/5 border border-purple-500/20 rounded-card p-4">
+            <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Outreach
+                <span class="text-[10px] text-mcc-dim font-normal">({{ (new_responses|length) + (followups_due|length) }} items)</span>
+            </h3>
+            <div class="space-y-1.5">
+                {% for contact in new_responses %}
+                <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-mcc-success/5 border border-mcc-success/15">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-mcc-success animate-pulse"></span>
+                        <span class="text-xs">New response from <span class="font-medium text-mcc-success">{{ contact.name }}</span></span>
+                        <span class="text-[10px] text-mcc-dim">{{ contact.platform }}</span>
+                    </div>
+                    <a href="/pipelines/outreach" class="text-[10px] text-mcc-accent hover:text-mcc-accent/80 transition-colors">View &rarr;</a>
+                </div>
+                {% endfor %}
+                {% for contact in followups_due %}
+                <div class="flex items-center justify-between py-1.5 px-2 rounded-lg bg-mcc-warning/5 border border-mcc-warning/15">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-mcc-warning"></span>
+                        <span class="text-xs">Follow-up due: <span class="font-medium">{{ contact.name }}</span></span>
+                        <span class="text-[10px] text-mcc-dim">{{ contact.platform }}</span>
+                    </div>
+                    <a href="/pipelines/outreach" class="text-[10px] text-mcc-accent hover:text-mcc-accent/80 transition-colors">View &rarr;</a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Approval Queue (if items waiting) -->
+        {% if queue_count %}
+        <div class="bg-mcc-accent/5 border border-mcc-accent/20 rounded-card p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-mcc-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    <span class="text-sm font-semibold">{{ queue_count }} item{{ 's' if queue_count != 1 }} waiting for approval</span>
+                </div>
+                <a href="/queue" class="text-[11px] px-3 py-1.5 rounded-lg bg-mcc-accent/15 text-mcc-accent hover:bg-mcc-accent/25 font-medium transition-colors">
+                    Review Queue &rarr;
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Daily Routine (recurring tasks) -->
+        {% if daily_recurring %}
+        <div class="bg-mcc-card rounded-card border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4 text-mcc-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                Daily Routine
+            </h3>
+            <div class="space-y-2">
+                {% for task in daily_recurring %}
+                {% set recur_days = (task.recurring_next_due - today).days if task.recurring_next_due else none %}
+                <div class="flex items-center gap-3 py-1.5 border-b border-mcc-border/30 last:border-0
+                    {% if recur_days is not none and recur_days < 0 %}bg-mcc-critical/5{% elif recur_days is not none and recur_days == 0 %}bg-mcc-warning/5{% endif %}">
+                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0
+                        {% if recur_days is not none and recur_days < 0 %}bg-mcc-critical
+                        {% elif recur_days is not none and recur_days == 0 %}bg-mcc-warning
+                        {% elif recur_days is not none and recur_days == 1 %}bg-mcc-accent
+                        {% else %}bg-mcc-muted{% endif %}"></span>
+                    <div class="flex-1">
+                        <span class="text-xs font-medium">{{ task.title }}</span>
+                        {% if task.recurring_next_due %}
+                        <span class="text-[10px] ml-1
+                            {% if recur_days is not none and recur_days < 0 %}text-mcc-critical
+                            {% elif recur_days is not none and recur_days == 0 %}text-mcc-warning
+                            {% else %}text-mcc-muted{% endif %}">
+                            {% if recur_days is not none and recur_days < 0 %}{{ -recur_days }}d overdue
+                            {% elif recur_days == 0 %}due today
+                            {% elif recur_days == 1 %}tomorrow
+                            {% else %}{{ task.recurring_next_due.strftime('%b %d') }}{% endif %}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Today's Tasks by Channel -->
+        <div class="bg-mcc-card rounded-card border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3">Your Tasks Today</h3>
+            {% if tasks_by_channel %}
+            {% for channel_name, tasks in tasks_by_channel.items() %}
+            <div class="mb-4 last:mb-0">
+                <div class="text-[10px] text-mcc-muted uppercase tracking-wide mb-2 flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-mcc-accent"></span>
+                    {{ channel_name }}
+                </div>
+                <div class="space-y-2 pl-3">
+                    {% for task in tasks %}
+                    <div class="flex items-center justify-between py-1 border-b border-mcc-border/30 last:border-0">
+                        <div class="flex items-center gap-3">
+                            <button class="w-4 h-4 rounded border border-mcc-border hover:border-mcc-success hover:bg-mcc-success/20 flex-shrink-0 transition-colors"
+                                    hx-post="/daily/complete/{{ task.id }}" hx-target="closest div" hx-swap="innerHTML"></button>
+                            <div>
+                                <span class="text-xs font-medium">{{ task.title }}</span>
+                                <div class="text-[10px] text-mcc-muted">
+                                    {% if task.assigned_to %}{{ task.assigned_to|capitalize }}{% endif %}
+                                    {% if task.due_date %} &middot; Due {{ task.due_date.strftime('%b %d') }}{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0
+                            {% if task.priority.value == 'launch_critical' %}bg-mcc-critical
+                            {% elif task.priority.value == 'high' %}bg-mcc-warning
+                            {% else %}bg-mcc-muted{% endif %}"></span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p class="text-xs text-mcc-muted py-4 text-center">No tasks specifically due today.</p>
+            {% endif %}
+        </div>
+
+        <!-- This Week -->
+        {% if this_week_tasks %}
+        <div class="bg-mcc-card rounded-card border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4 text-mcc-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                This Week ({{ this_week_tasks|length }})
+            </h3>
+            <div class="space-y-2">
+                {% for task in this_week_tasks %}
+                <div class="flex items-center justify-between py-1.5 border-b border-mcc-border/30 last:border-0">
+                    <div class="flex items-center gap-3">
+                        <button class="w-4 h-4 rounded border border-mcc-border hover:border-mcc-success hover:bg-mcc-success/20 flex-shrink-0 transition-colors"
+                                hx-post="/daily/complete/{{ task.id }}" hx-target="closest div" hx-swap="innerHTML"></button>
+                        <div>
+                            <span class="text-xs font-medium">{{ task.title }}</span>
+                            <div class="text-[10px] text-mcc-muted flex items-center gap-2">
+                                {% if task.assigned_to %}<span>{{ task.assigned_to|capitalize }}</span>{% endif %}
+                                {% if task.due_date %}<span>Due {{ task.due_date.strftime('%b %d') }}</span>{% endif %}
+                                {% if task.priority.value == 'launch_critical' %}<span class="text-mcc-critical font-semibold">CRITICAL</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0
+                        {% if task.priority.value == 'launch_critical' %}bg-mcc-critical
+                        {% elif task.priority.value == 'high' %}bg-mcc-warning
+                        {% else %}bg-mcc-muted{% endif %}"></span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Upcoming (backlog due within 48h) -->
+        {% if upcoming_tasks %}
+        <div class="bg-mcc-warning/5 border border-mcc-warning/30 rounded-card p-4">
+            <h3 class="text-sm font-semibold text-mcc-warning mb-3 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-mcc-warning"></span>
+                Upcoming ({{ upcoming_tasks|length }})
+            </h3>
+            <div class="space-y-2">
+                {% for task in upcoming_tasks %}
+                <div class="flex items-center justify-between py-1.5 border-b border-mcc-warning/10 last:border-0">
+                    <div class="flex items-center gap-3">
+                        <span class="w-1.5 h-1.5 rounded-full bg-mcc-warning flex-shrink-0"></span>
+                        <div>
+                            <span class="text-xs font-medium">{{ task.title }}</span>
+                            <div class="text-[10px] text-mcc-muted">
+                                {% if task.assigned_to %}{{ task.assigned_to|capitalize }} &middot; {% endif %}Due {{ task.due_date.strftime('%a %b %d') }}
+                            </div>
+                        </div>
+                    </div>
+                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0
+                        {% if task.priority.value == 'launch_critical' %}bg-mcc-critical
+                        {% elif task.priority.value == 'high' %}bg-mcc-warning
+                        {% else %}bg-mcc-muted{% endif %}"></span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Daily Channel Actions -->
+        {% if daily_actions %}
+        <div class="bg-mcc-card rounded-card border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3">Daily Channel Actions</h3>
+            <div class="grid grid-cols-2 gap-4">
+                {% for ch in daily_actions %}
+                <div class="bg-mcc-bg rounded-lg p-3">
+                    <div class="text-xs font-medium mb-2 flex items-center gap-2">
+                        <a href="/channels/{{ ch.channel_id }}" class="text-mcc-accent hover:underline">{{ ch.channel }}</a>
+                    </div>
+                    <ul class="space-y-1">
+                        {% for action in ch.actions %}
+                        <li class="text-[11px] text-mcc-muted flex items-start gap-1.5">
+                            <span class="text-mcc-accent mt-0.5">&#8226;</span>
+                            {{ action }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right: Recurring + Systems + Overnight -->
+    <div class="col-span-12 xl:col-span-4 space-y-4">
+
+        <!-- Weekly/Other Recurring -->
+        {% if weekly_recurring %}
+        <div class="bg-mcc-card rounded-card border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4 text-mcc-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Recurring
+            </h3>
+            <div class="space-y-2">
+                {% for task in weekly_recurring %}
+                {% set recur_days = (task.recurring_next_due - today).days if task.recurring_next_due else none %}
+                <div class="flex items-center gap-2.5 py-1.5 border-b border-mcc-border/30 last:border-0
+                    {% if recur_days is not none and recur_days < 0 %}bg-mcc-critical/5{% elif recur_days is not none and recur_days == 0 %}bg-mcc-warning/5{% endif %}">
+                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0
+                        {% if recur_days is not none and recur_days < 0 %}bg-mcc-critical
+                        {% elif recur_days is not none and recur_days == 0 %}bg-mcc-warning
+                        {% elif recur_days is not none and recur_days == 1 %}bg-mcc-accent
+                        {% else %}bg-mcc-dim{% endif %}"></span>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-medium truncate">{{ task.title }}</div>
+                        <div class="text-[10px]
+                            {% if recur_days is not none and recur_days < 0 %}text-mcc-critical
+                            {% elif recur_days is not none and recur_days == 0 %}text-mcc-warning
+                            {% else %}text-mcc-muted{% endif %}">
+                            {% if recur_days is not none and recur_days < 0 %}{{ -recur_days }}d overdue
+                            {% elif recur_days == 0 %}Due today
+                            {% elif recur_days == 1 %}Tomorrow
+                            {% elif task.recurring_next_due %}{{ task.recurring_next_due.strftime('%a %b %d') }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Autonomous Systems Status -->
+        <div class="bg-mcc-card rounded-card border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4 text-mcc-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
+                Autonomous Systems
+            </h3>
+            <div class="space-y-2">
+                {% for auto in automations %}
+                <div class="flex items-center gap-2.5 py-1.5 border-b border-mcc-border/30 last:border-0">
+                    <span class="health-dot health-{{ auto.health.value }}"></span>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-medium truncate">{{ auto.name }}</div>
+                        <div class="text-[10px] text-mcc-muted flex items-center gap-2">
+                            <span>{{ auto.platform }}</span>
+                            {% if auto.last_confirmed_run %}
+                            <span>Last: {{ auto.last_confirmed_run.strftime('%b %d %H:%M') }}</span>
+                            {% else %}
+                            <span>No run recorded</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded
+                        {% if auto.health.value == 'running' %}bg-mcc-success/15 text-mcc-success
+                        {% elif auto.health.value == 'stale' %}bg-mcc-warning/15 text-mcc-warning
+                        {% elif auto.health.value == 'failed' %}bg-mcc-critical/15 text-mcc-critical
+                        {% else %}bg-mcc-bg text-mcc-muted{% endif %}">
+                        {{ auto.health.value|capitalize }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Overnight Changes -->
+        <div class="bg-mcc-card rounded-card border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4 text-mcc-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                What Changed Overnight
+            </h3>
+            {% if overnight_changes %}
+            <div class="space-y-2">
+                {% for change in overnight_changes %}
+                <div class="bg-mcc-bg rounded-lg p-2.5">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-medium">{{ change.channel }}</span>
+                        <span class="text-xs font-mono font-bold
+                            {% if change.pct_change > 0 %}text-mcc-success{% else %}text-mcc-critical{% endif %}">
+                            {% if change.pct_change > 0 %}+{% endif %}{{ change.pct_change }}%
+                        </span>
+                    </div>
+                    <div class="text-[10px] text-mcc-muted">
+                        {{ change.metric.replace('_', ' ').title() }}:
+                        {{ "%.0f"|format(change.previous) }} &rarr; {{ "%.0f"|format(change.current) }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-xs text-mcc-muted py-4 text-center">No significant changes (&gt;10%) detected overnight.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}

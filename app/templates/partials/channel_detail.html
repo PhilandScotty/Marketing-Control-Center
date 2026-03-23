@@ -1,0 +1,162 @@
+<!-- Channel Detail Partial (loaded via HTMX into dashboard) -->
+<div class="bg-mcc-card rounded-lg border border-mcc-accent/30 p-5 relative">
+    <!-- Close button -->
+    <button class="absolute top-3 right-3 text-mcc-muted hover:text-mcc-text"
+            onclick="document.getElementById('channel-detail-panel').classList.add('hidden'); document.getElementById('channel-detail-panel').innerHTML = '';">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+
+    <!-- Header -->
+    <div class="flex items-center gap-3 mb-4 pr-8">
+        <span class="health-dot health-{{ channel.health.value if channel.health else 'unknown' }}" style="width:12px;height:12px;"></span>
+        <h2 class="text-lg font-semibold">{{ channel.name }}</h2>
+        <span class="px-2 py-0.5 rounded text-xs bg-mcc-bg capitalize">{{ channel.status.value }}</span>
+        {% if channel.automation_level.value == 'full_auto' %}
+        <span class="px-2 py-0.5 rounded text-xs bg-mcc-secondary/30">Full Auto</span>
+        {% elif channel.automation_level.value == 'low_touch' %}
+        <span class="px-2 py-0.5 rounded text-xs bg-mcc-warning/20 text-mcc-warning">Low Touch</span>
+        {% endif %}
+        <a href="/channels/{{ channel.id }}" class="ml-auto text-xs text-mcc-accent hover:underline">Full View &rarr;</a>
+    </div>
+
+    <div class="grid grid-cols-12 gap-5">
+        <!-- Metrics -->
+        <div class="col-span-8">
+            {% if latest_metrics %}
+            <div class="grid grid-cols-3 gap-3 mb-4">
+                {% for name, m in latest_metrics.items() %}
+                <div class="bg-mcc-bg rounded-lg p-3">
+                    <div class="text-[10px] text-mcc-muted mb-0.5">{{ name.replace('_', ' ').title() }}</div>
+                    <div class="text-lg font-bold font-mono">
+                        {{ "%.0f"|format(m.metric_value) if m.unit == 'count' else "%.1f"|format(m.metric_value) }}
+                        <span class="text-[10px] text-mcc-muted font-normal">{{ m.unit }}</span>
+                    </div>
+                    {% if m.previous_value is not none %}
+                    {% set delta = m.metric_value - m.previous_value %}
+                    {% if delta > 0 %}
+                    <span class="text-[10px] text-mcc-success">&#9650; +{{ "%.0f"|format(delta) }}</span>
+                    {% elif delta < 0 %}
+                    <span class="text-[10px] text-mcc-critical">&#9660; {{ "%.0f"|format(delta) }}</span>
+                    {% endif %}
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-xs text-mcc-muted mb-4">No metrics recorded yet.</p>
+            {% endif %}
+
+            <!-- Charts -->
+            {% for name, data in metric_history.items() %}
+            {% if data['values']|length > 1 %}
+            <div class="mb-3">
+                <h4 class="text-[10px] text-mcc-muted uppercase mb-1">{{ name.replace('_', ' ').title() }} History</h4>
+                <div style="height: 120px;">
+                    <canvas id="partial-chart-{{ name }}" data-labels='{{ data['labels'] | tojson }}' data-values='{{ data['values'] | tojson }}'></canvas>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- Actions + Tasks -->
+        <div class="col-span-4 space-y-3">
+            {% if channel.daily_actions %}
+            <div>
+                <div class="text-[10px] text-mcc-muted uppercase tracking-wide mb-1">Daily Actions</div>
+                {% for action in channel.daily_actions %}
+                <div class="text-xs flex items-start gap-1.5 mb-1">
+                    <span class="text-mcc-accent">&#8226;</span>
+                    <span>{{ action }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if channel.auto_actions %}
+            <div>
+                <div class="text-[10px] text-mcc-muted uppercase tracking-wide mb-1">Automated</div>
+                {% for action in channel.auto_actions %}
+                <div class="text-xs flex items-start gap-1.5 mb-1">
+                    <span class="text-mcc-success">&#9889;</span>
+                    <span>{{ action }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if tasks %}
+            <div>
+                <div class="text-[10px] text-mcc-muted uppercase tracking-wide mb-1">Open Tasks ({{ tasks|length }})</div>
+                {% for task in tasks[:5] %}
+                <div class="text-xs flex items-start gap-1.5 mb-1">
+                    <span class="w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0
+                        {% if task.priority.value == 'launch_critical' %}bg-mcc-critical{% elif task.priority.value == 'high' %}bg-mcc-warning{% else %}bg-mcc-muted{% endif %}"></span>
+                    <span class="truncate">{{ task.title }}</span>
+                </div>
+                {% endfor %}
+                {% if tasks|length > 5 %}
+                <div class="text-[10px] text-mcc-muted">+{{ tasks|length - 5 }} more</div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if automations %}
+            <div>
+                <div class="text-[10px] text-mcc-muted uppercase tracking-wide mb-1">Automations</div>
+                {% for auto in automations %}
+                <div class="text-xs flex items-center gap-1.5 mb-1">
+                    <span class="health-dot health-{{ auto.health.value }}"></span>
+                    <span class="truncate">{{ auto.name }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize charts in the partial
+document.querySelectorAll('canvas[id^="partial-chart-"]').forEach(function(canvas) {
+    const labels = JSON.parse(canvas.dataset.labels);
+    const values = JSON.parse(canvas.dataset.values);
+    new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                borderColor: '#06B6D4',
+                backgroundColor: (function() {
+                    var ctx = canvas.getContext('2d');
+                    var g = ctx.createLinearGradient(0, 0, 0, 300);
+                    g.addColorStop(0, 'rgba(6, 182, 212, 0.15)');
+                    g.addColorStop(1, 'rgba(6, 182, 212, 0)');
+                    return g;
+                })(),
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: '#06B6D4',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    ticks: { color: '#8B8B9E', font: { size: 9 } },
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                },
+                y: {
+                    ticks: { color: '#8B8B9E', font: { size: 9 } },
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                }
+            }
+        }
+    });
+});
+</script>

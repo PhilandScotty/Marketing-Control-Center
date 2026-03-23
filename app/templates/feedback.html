@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Customer Feedback{% endblock %}
+{% block page_title %}Customer Feedback{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-5 gap-4 mb-6">
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold">{{ total }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Total</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold text-mcc-success">{{ positive }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Positive</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold text-mcc-muted">{{ neutral }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Neutral</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold text-mcc-critical">{{ negative }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Negative</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold">{% if avg_nps %}{{ avg_nps }}{% else %}--{% endif %}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Avg NPS</div>
+    </div>
+</div>
+
+<div class="grid grid-cols-12 gap-6">
+    <!-- Left: Feed + Form -->
+    <div class="col-span-8 space-y-4">
+        <!-- Filters + Add Button -->
+        <div class="flex items-center justify-between">
+            <form class="flex items-center gap-3" method="GET" action="/feedback/">
+                <select name="feedback_type" class="mcc-select text-xs" onchange="this.form.submit()">
+                    <option value="">All Types</option>
+                    {% for val, label in all_types %}
+                    <option value="{{ val }}" {% if filter_type == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <select name="sentiment" class="mcc-select text-xs" onchange="this.form.submit()">
+                    <option value="">All Sentiments</option>
+                    {% for val, label in all_sentiments %}
+                    <option value="{{ val }}" {% if filter_sentiment == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <select name="theme" class="mcc-select text-xs" onchange="this.form.submit()">
+                    <option value="">All Themes</option>
+                    {% for t in all_themes %}
+                    <option value="{{ t }}" {% if filter_theme == t %}selected{% endif %}>{{ t }}</option>
+                    {% endfor %}
+                </select>
+                {% if filter_type or filter_sentiment or filter_theme %}
+                <a href="/feedback/" class="text-[10px] text-mcc-accent hover:underline">Clear</a>
+                {% endif %}
+            </form>
+            <button class="text-xs px-3 py-1.5 bg-mcc-accent text-white rounded hover:bg-mcc-accent/80 transition-colors"
+                    onclick="document.getElementById('feedback-form').classList.toggle('hidden')">
+                + Add Feedback
+            </button>
+        </div>
+
+        <!-- Create Form (hidden by default) -->
+        <div id="feedback-form" class="hidden bg-mcc-card rounded-lg border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3">Add Feedback</h3>
+            <form method="POST" action="/feedback/create" class="space-y-3">
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="text-[10px] text-mcc-muted uppercase block mb-1">Source</label>
+                        <select name="source" class="mcc-select text-xs w-full" required>
+                            {% for val, label in all_sources %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted uppercase block mb-1">Type</label>
+                        <select name="feedback_type" class="mcc-select text-xs w-full" required>
+                            {% for val, label in all_types %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted uppercase block mb-1">Sentiment</label>
+                        <select name="sentiment" class="mcc-select text-xs w-full">
+                            {% for val, label in all_sentiments %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted uppercase block mb-1">Content</label>
+                    <textarea name="content" rows="3" class="mcc-input text-xs w-full" required placeholder="Feedback content..."></textarea>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="text-[10px] text-mcc-muted uppercase block mb-1">Themes (comma-separated)</label>
+                        <input name="themes" type="text" class="mcc-input text-xs w-full" placeholder="ux, pricing, support">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted uppercase block mb-1">Customer ID</label>
+                        <input name="customer_identifier" type="text" class="mcc-input text-xs w-full" placeholder="Optional">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted uppercase block mb-1">NPS Score</label>
+                        <input name="nps_score" type="number" min="0" max="10" class="mcc-input text-xs w-full" placeholder="0-10">
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <label class="flex items-center gap-2 text-xs">
+                        <input type="checkbox" name="can_use_publicly" value="true" class="rounded">
+                        <span>Can use publicly (testimonial)</span>
+                    </label>
+                    <button type="submit" class="text-xs px-4 py-1.5 bg-mcc-accent text-white rounded hover:bg-mcc-accent/80 transition-colors">
+                        Save Feedback
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Feed -->
+        <div class="space-y-3">
+            {% for item in items %}
+            <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+                <div class="flex items-start justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full
+                            {% if item.sentiment.value == 'positive' %}bg-mcc-success
+                            {% elif item.sentiment.value == 'negative' %}bg-mcc-critical
+                            {% else %}bg-mcc-muted{% endif %}"></span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-mcc-bg text-mcc-muted">
+                            {{ item.feedback_type.value.replace('_', ' ').title() }}
+                        </span>
+                        <span class="text-[10px] text-mcc-muted">{{ item.source.value.replace('_', ' ').title() }}</span>
+                        {% if item.can_use_publicly %}
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-mcc-success/15 text-mcc-success">Testimonial</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] text-mcc-muted">{{ item.created_at.strftime('%b %d, %Y') }}</span>
+                        <button class="text-[10px] text-mcc-muted hover:text-mcc-accent"
+                                hx-post="/feedback/toggle-public/{{ item.id }}" hx-target="closest div" hx-swap="innerHTML">
+                            {% if item.can_use_publicly %}Unpublish{% else %}Make Public{% endif %}
+                        </button>
+                        <button class="text-[10px] text-mcc-critical hover:text-mcc-critical/80"
+                                hx-post="/feedback/delete/{{ item.id }}" hx-target="closest .bg-mcc-card" hx-swap="outerHTML"
+                                hx-confirm="Delete this feedback?">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+                <p class="text-xs leading-relaxed">{{ item.content }}</p>
+                {% if item.themes %}
+                <div class="flex gap-1 mt-2">
+                    {% for t in item.themes %}
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-mcc-accent/10 text-mcc-accent">{{ t }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if item.nps_score is not none %}
+                <div class="mt-1 text-[10px] text-mcc-muted">NPS: <span class="font-mono font-bold">{{ item.nps_score }}</span></div>
+                {% endif %}
+                {% if item.customer_identifier %}
+                <div class="mt-1 text-[10px] text-mcc-muted">Customer: {{ item.customer_identifier }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% if not items %}
+            <div class="text-center py-12 text-mcc-muted text-sm">No feedback yet. Click "+ Add Feedback" to start collecting.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right: Testimonial Bank -->
+    <div class="col-span-4">
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 sticky top-4">
+            <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4 text-mcc-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Testimonial Bank ({{ testimonials|length }})
+            </h3>
+            {% if testimonials %}
+            <div class="space-y-3">
+                {% for t in testimonials %}
+                <div class="bg-mcc-bg rounded-lg p-3">
+                    <p class="text-xs leading-relaxed italic">"{{ t.content }}"</p>
+                    <div class="flex items-center justify-between mt-2">
+                        <span class="text-[10px] text-mcc-muted">{{ t.source.value.replace('_', ' ').title() }}</span>
+                        <span class="text-[10px] text-mcc-muted">{{ t.created_at.strftime('%b %d') }}</span>
+                    </div>
+                    {% if t.themes %}
+                    <div class="flex gap-1 mt-1">
+                        {% for theme in t.themes %}
+                        <span class="text-[8px] px-1 py-0.5 rounded bg-mcc-accent/10 text-mcc-accent">{{ theme }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-xs text-mcc-muted text-center py-4">No public testimonials yet. Mark feedback as "Can use publicly" to build your bank.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}

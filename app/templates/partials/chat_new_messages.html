@@ -1,0 +1,18 @@
+<!-- Appended new messages -->
+{% for msg in messages %}
+{% if msg.role.value == 'user' %}
+<div class="flex justify-end">
+    <div class="max-w-[85%] px-3 py-2 rounded-lg bg-mcc-secondary text-sm text-mcc-text">
+        {{ msg.content }}
+    </div>
+</div>
+{% elif msg.role.value == 'assistant' %}
+<div class="flex justify-start">
+    <div class="max-w-[85%] px-3 py-2 rounded-lg bg-mcc-card border border-mcc-border text-sm text-mcc-text whitespace-pre-wrap">{{ msg.content }}</div>
+</div>
+{% endif %}
+{% endfor %}
+<script>
+    var chatMsgs = document.getElementById('chat-messages');
+    if (chatMsgs) chatMsgs.scrollTop = chatMsgs.scrollHeight;
+</script>

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Roadmap{% endblock %}
+{% block page_title %}Roadmap{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<!-- Header + Filters -->
+<div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+        <a href="/tasks" class="text-xs text-mcc-accent hover:underline">&larr; Kanban View</a>
+        <span class="text-sm text-mcc-muted">{{ task_bars|length }} tasks</span>
+    </div>
+    <form method="get" action="/roadmap" class="flex items-center gap-2">
+        <select name="channel_id" class="mcc-select text-xs py-1" onchange="this.form.submit()">
+            <option value="">All Channels</option>
+            {% for ch in channels %}
+            <option value="{{ ch.id }}" {% if filter_channel == ch.id %}selected{% endif %}>{{ ch.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="assignee" class="mcc-select text-xs py-1" onchange="this.form.submit()">
+            <option value="">All Assignees</option>
+            {% for a in assignees %}
+            <option value="{{ a }}" {% if filter_assignee == a %}selected{% endif %}>{{ a|capitalize }}</option>
+            {% endfor %}
+        </select>
+        <select name="priority" class="mcc-select text-xs py-1" onchange="this.form.submit()">
+            <option value="">All Priorities</option>
+            {% for val, label in priorities %}
+            <option value="{{ val }}" {% if filter_priority == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+<!-- Legend -->
+<div class="flex items-center gap-4 mb-4 text-[10px] text-mcc-muted">
+    <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-sm bg-mcc-accent inline-block"></span> Critical Path</span>
+    <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-sm bg-mcc-critical inline-block"></span> Overdue</span>
+    <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-sm bg-mcc-secondary inline-block"></span> On Track</span>
+    <span class="flex items-center gap-1"><span class="w-0.5 h-3 bg-mcc-success inline-block"></span> Today</span>
+    <span class="flex items-center gap-1"><span class="w-0.5 h-3 bg-mcc-accent inline-block"></span> Launch</span>
+</div>
+
+<!-- Timeline -->
+<div class="bg-mcc-card rounded-lg border border-mcc-border p-4 overflow-x-auto">
+    <!-- Time Axis -->
+    <div class="relative h-8 mb-2 border-b border-mcc-border">
+        {% for marker in markers %}
+        <div class="absolute text-[10px] text-mcc-muted -translate-x-1/2 {% if marker.is_today %}text-mcc-success font-semibold{% endif %}"
+             style="left: {{ marker.pct }}%;">
+            {{ marker.date }}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Task Rows -->
+    <div class="relative" id="roadmap-canvas" style="min-height: {{ (task_bars|length * 36) + 20 }}px;">
+        <!-- Today Marker -->
+        <div class="absolute top-0 bottom-0 w-0.5 bg-mcc-success/60 z-10" style="left: {{ today_pct }}%;"></div>
+
+        <!-- Launch Marker -->
+        <div class="absolute top-0 bottom-0 w-0.5 bg-mcc-accent/60 z-10" style="left: {{ launch_pct }}%;"></div>
+
+        {% for bar in task_bars %}
+        <div class="absolute flex items-center group" id="bar-{{ bar.id }}"
+             style="left: {{ bar.left_pct }}%; width: {{ bar.width_pct }}%; top: {{ loop.index0 * 36 }}px; height: 28px;"
+             data-task-id="{{ bar.id }}"
+             data-blocked-by='{{ bar.blocked_by|tojson }}'
+             data-blocks='{{ bar.blocks|tojson }}'>
+            <!-- Bar -->
+            <div class="h-5 rounded-sm w-full flex items-center px-2 text-[10px] font-medium text-white truncate cursor-pointer transition-all
+                {% if bar.is_overdue %}bg-mcc-critical
+                {% elif bar.is_critical %}bg-mcc-accent
+                {% else %}bg-mcc-secondary{% endif %}
+                hover:brightness-125"
+                 ondblclick="openEditModal({{ bar.id }})"
+                 title="{{ bar.title }} ({{ bar.start }} → {{ bar.end }})">
+                <!-- Priority dot -->
+                <span class="w-1.5 h-1.5 rounded-full mr-1.5 flex-shrink-0
+                    {% if bar.priority == 'launch_critical' %}bg-white
+                    {% elif bar.priority == 'high' %}bg-mcc-warning
+                    {% else %}bg-white/40{% endif %}"></span>
+                <span class="truncate">{{ bar.title }}</span>
+            </div>
+
+            <!-- Tooltip -->
+            <div class="absolute left-0 top-full mt-1 bg-mcc-card border border-mcc-border rounded-lg p-2 shadow-xl z-30 w-56
+                        opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+                <div class="text-xs font-medium mb-1">{{ bar.title }}</div>
+                <div class="text-[10px] text-mcc-muted space-y-0.5">
+                    <div>{{ bar.assigned_to|capitalize }} &middot; {{ bar.priority|replace('_', ' ')|title }}</div>
+                    <div>{{ bar.start }} → {{ bar.due_date or bar.end }}</div>
+                    {% if bar.is_overdue %}<div class="text-mcc-critical">Overdue</div>{% endif %}
+                    {% if bar.is_critical %}<div class="text-mcc-accent">Critical Path</div>{% endif %}
+                    {% if bar.blocked_by|length > 0 %}<div>Blocked by: {{ bar.blocked_by|join(', ') }}</div>{% endif %}
+                    {% if bar.blocks|length > 0 %}<div>Blocks: {{ bar.blocks|join(', ') }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Dependency Arrows (SVG overlay) -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('roadmap-canvas');
+    if (!canvas) return;
+    const bars = {{ task_bars_json|safe }};
+    const barEls = {};
+    bars.forEach(function(bar) {
+        barEls[bar.id] = document.getElementById('bar-' + bar.id);
+    });
+
+    // Create SVG overlay for dependency arrows
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.style.position = 'absolute';
+    svg.style.top = '0';
+    svg.style.left = '0';
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+    svg.style.pointerEvents = 'none';
+    svg.style.zIndex = '5';
+    canvas.appendChild(svg);
+
+    // Draw arrows for blocked_by relationships
+    bars.forEach(function(bar) {
+        if (!bar.blocked_by || bar.blocked_by.length === 0) return;
+        const toEl = barEls[bar.id];
+        if (!toEl) return;
+        bar.blocked_by.forEach(function(depId) {
+            const fromEl = barEls[depId];
+            if (!fromEl) return;
+
+            const fromRect = fromEl.getBoundingClientRect();
+            const toRect = toEl.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+
+            const x1 = fromRect.right - canvasRect.left;
+            const y1 = fromRect.top + fromRect.height / 2 - canvasRect.top;
+            const x2 = toRect.left - canvasRect.left;
+            const y2 = toRect.top + toRect.height / 2 - canvasRect.top;
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const midX = (x1 + x2) / 2;
+            path.setAttribute('d', 'M' + x1 + ',' + y1 + ' C' + midX + ',' + y1 + ' ' + midX + ',' + y2 + ' ' + x2 + ',' + y2);
+            path.setAttribute('stroke', 'rgba(233, 69, 96, 0.3)');
+            path.setAttribute('stroke-width', '1.5');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke-dasharray', '4,3');
+            svg.appendChild(path);
+
+            // Arrow head
+            const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            arrow.setAttribute('points', (x2-5) + ',' + (y2-3) + ' ' + x2 + ',' + y2 + ' ' + (x2-5) + ',' + (y2+3));
+            arrow.setAttribute('fill', 'rgba(233, 69, 96, 0.4)');
+            svg.appendChild(arrow);
+        });
+    });
+
+    // Hover highlighting on roadmap bars
+    canvas.addEventListener('mouseenter', function(e) {
+        const bar = e.target.closest('[data-task-id]');
+        if (!bar) return;
+        const blockedBy = JSON.parse(bar.dataset.blockedBy || '[]');
+        const blocks = JSON.parse(bar.dataset.blocks || '[]');
+        blockedBy.forEach(function(id) {
+            const el = document.getElementById('bar-' + id);
+            if (el) el.querySelector('div').classList.add('ring-2', 'ring-mcc-critical');
+        });
+        blocks.forEach(function(id) {
+            const el = document.getElementById('bar-' + id);
+            if (el) el.querySelector('div').classList.add('ring-2', 'ring-mcc-success');
+        });
+    }, true);
+
+    canvas.addEventListener('mouseleave', function(e) {
+        const bar = e.target.closest('[data-task-id]');
+        if (!bar) return;
+        document.querySelectorAll('.ring-2').forEach(function(el) {
+            el.classList.remove('ring-2', 'ring-mcc-critical', 'ring-mcc-success');
+        });
+    }, true);
+});
+</script>
+
+<!-- Edit Modal (shared with kanban) -->
+<div id="edit-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)closeEditModal()">
+    <div id="edit-modal-content" class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-xl max-h-[85vh] overflow-y-auto p-6 shadow-2xl">
+    </div>
+</div>
+<script>
+function openEditModal(taskId) {
+    const modal = document.getElementById('edit-modal-backdrop');
+    const content = document.getElementById('edit-modal-content');
+    modal.classList.remove('hidden');
+    fetch('/tasks/' + taskId + '/edit')
+        .then(r => r.text())
+        .then(html => { content.innerHTML = html; });
+}
+function closeEditModal() {
+    document.getElementById('edit-modal-backdrop').classList.add('hidden');
+    document.getElementById('edit-modal-content').innerHTML = '';
+}
+</script>
+
+{% endif %}
+{% endblock %}

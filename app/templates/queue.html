@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Approval Queue{% endblock %}
+{% block page_title %}Approval Queue{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<div class="max-w-3xl mx-auto space-y-5">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl font-bold">{{ total }}</span>
+                <span class="text-xs text-mcc-muted">items waiting</span>
+            </div>
+            {% if counts %}
+            <div class="flex items-center gap-2 flex-wrap">
+                {% for type_val, count in counts.items() %}
+                <span class="text-[10px] px-2 py-0.5 rounded-full
+                    {% if 'followup' in type_val %}bg-purple-500/15 text-purple-400
+                    {% elif 'decline' in type_val %}bg-mcc-warning/15 text-mcc-warning
+                    {% elif 'checkin' in type_val %}bg-mcc-accent/15 text-mcc-accent
+                    {% elif 'prospect' in type_val %}bg-emerald-500/15 text-emerald-400
+                    {% else %}bg-mcc-bg text-mcc-muted{% endif %}">
+                    {{ count }} {{ type_val.replace("_", " ").replace("outreach ", "") }}
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <a href="/daily" class="text-[11px] text-mcc-accent hover:text-mcc-accent/80 transition-colors">&larr; Daily Ops</a>
+    </div>
+
+    <!-- Queue Items -->
+    {% if items %}
+    <div class="space-y-2" id="queue-list">
+        {% for item in items %}
+        {% set type_val = item.item_type.value %}
+        <div class="rounded-lg p-4
+            {% if 'followup' in type_val %}bg-purple-500/5 border border-purple-500/20
+            {% elif 'decline' in type_val %}bg-mcc-warning/5 border border-mcc-warning/20
+            {% elif 'checkin' in type_val %}bg-mcc-accent/5 border border-mcc-accent/20
+            {% elif 'prospect' in type_val %}bg-emerald-500/5 border border-emerald-500/20
+            {% elif 'recommendation' in type_val %}bg-mcc-accent/5 border border-mcc-accent/20
+            {% else %}bg-mcc-card border border-mcc-border{% endif %}"
+            id="queue-item-{{ item.id }}">
+
+            <!-- Header -->
+            <div class="flex items-start justify-between gap-3 mb-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-[9px] uppercase font-semibold
+                        {% if 'followup' in type_val %}text-purple-400
+                        {% elif 'decline' in type_val %}text-mcc-warning
+                        {% elif 'checkin' in type_val %}text-mcc-accent
+                        {% elif 'prospect' in type_val %}text-emerald-400
+                        {% else %}text-mcc-muted{% endif %}">
+                        {{ item.source_label }}
+                    </span>
+                    <span class="text-[9px] text-mcc-dim">{{ type_val.replace("_", " ").title() }}</span>
+                    {% if item.content_pillar %}
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-mcc-bg text-mcc-accent">{{ item.content_pillar }}</span>
+                    {% endif %}
+                </div>
+                <span class="text-[9px] text-mcc-dim flex-shrink-0">
+                    {% if item.created_at %}
+                    {% set delta = (now or item.created_at) %}
+                    {{ item.created_at.strftime("%b %d, %I:%M %p") }}
+                    {% endif %}
+                </span>
+            </div>
+
+            <!-- Title + Preview -->
+            <div class="text-sm font-medium mb-1">{{ item.title }}</div>
+
+            {% if item.draft_message %}
+            <div class="bg-mcc-bg/60 rounded-lg p-3 mb-2 border border-mcc-border/30">
+                <div class="text-[10px] text-mcc-muted uppercase tracking-wider mb-1">Draft Message</div>
+                <div class="text-xs text-mcc-text leading-relaxed whitespace-pre-wrap">{{ item.draft_message }}</div>
+            </div>
+            {% elif item.preview %}
+            <div class="text-xs text-mcc-muted leading-relaxed mb-2">{{ item.preview }}</div>
+            {% endif %}
+
+            {% if item.contact_id %}
+            <a href="/pipelines/outreach" class="text-[10px] text-mcc-accent hover:text-mcc-accent/80 transition-colors">
+                View in pipeline &rarr;
+            </a>
+            {% endif %}
+
+            <!-- Actions -->
+            <div class="flex items-center gap-2 mt-3 pt-2 border-t border-mcc-border/30">
+                <button hx-post="/queue/{{ item.id }}/approve"
+                        hx-target="#queue-item-{{ item.id }}"
+                        hx-swap="outerHTML"
+                        class="text-[11px] px-3 py-1.5 rounded-lg bg-mcc-success/15 text-mcc-success hover:bg-mcc-success/25 font-medium transition-colors">
+                    {% if 'decline' in type_val %}Yes, Decline
+                    {% elif 'checkin' in type_val %}Noted
+                    {% else %}Approve{% endif %}
+                </button>
+
+                {% if item.draft_message %}
+                <button hx-get="/queue/{{ item.id }}/edit-form"
+                        hx-target="#queue-item-{{ item.id }}"
+                        hx-swap="innerHTML"
+                        class="text-[11px] px-3 py-1.5 rounded-lg bg-mcc-bg text-mcc-muted hover:text-mcc-text font-medium transition-colors border border-mcc-border">
+                    Edit
+                </button>
+                {% endif %}
+
+                {% if 'content_draft' in type_val %}
+                <button hx-post="/queue/{{ item.id }}/reject"
+                        hx-target="#queue-item-{{ item.id }}"
+                        hx-swap="outerHTML"
+                        class="text-[11px] px-3 py-1.5 rounded-lg bg-mcc-critical/10 text-mcc-critical hover:bg-mcc-critical/20 font-medium transition-colors border border-mcc-critical/20">
+                    Reject
+                </button>
+                {% endif %}
+
+                <button hx-post="/queue/{{ item.id }}/skip"
+                        hx-target="#queue-item-{{ item.id }}"
+                        hx-swap="outerHTML"
+                        class="text-[11px] px-3 py-1.5 rounded-lg bg-mcc-bg text-mcc-muted hover:text-mcc-text font-medium transition-colors border border-mcc-border">
+                    Skip
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-16">
+        <svg class="w-12 h-12 mx-auto mb-4 text-mcc-dim opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p class="text-sm text-mcc-muted">Queue is clear</p>
+        <p class="text-xs text-mcc-dim mt-1">Nothing waiting for your approval</p>
+    </div>
+    {% endif %}
+
+</div>
+
+{% endif %}
+{% endblock %}

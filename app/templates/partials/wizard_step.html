@@ -1,0 +1,178 @@
+<!-- Wizard Step {{ current_step }} -->
+<div class="bg-mcc-card border border-mcc-border rounded-lg p-6">
+    <h2 class="font-semibold text-lg mb-1">Step {{ current_step }}: {{ step_info.title }}</h2>
+    <p class="text-xs text-mcc-muted mb-6">{{ step_info.description }}</p>
+
+    {% if current_step == 1 %}
+    <!-- Product Definition -->
+    <div id="wizard-data" class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wider">Project Name</label>
+                <input type="text" id="wiz-name" placeholder="e.g., My SaaS Product" class="mcc-input w-full text-xs mt-1">
+            </div>
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wider">Slug</label>
+                <input type="text" id="wiz-slug" placeholder="e.g., my-saas" class="mcc-input w-full text-xs mt-1">
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wider">Launch Date</label>
+                <input type="date" id="wiz-launch" class="mcc-input w-full text-xs mt-1">
+            </div>
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wider">Monthly Budget ($)</label>
+                <input type="number" id="wiz-budget" placeholder="1500" step="0.01" class="mcc-input w-full text-xs mt-1">
+            </div>
+        </div>
+        <div>
+            <label class="text-[10px] text-mcc-muted uppercase tracking-wider">Notes / Description</label>
+            <textarea id="wiz-notes" rows="3" placeholder="What is this project?" class="mcc-input w-full text-xs mt-1"></textarea>
+        </div>
+    </div>
+
+    {% elif current_step == 2 %}
+    <!-- Channel Selection -->
+    <div class="space-y-3">
+        <p class="text-xs text-mcc-muted">Select channels to activate for this project:</p>
+        <div class="grid grid-cols-3 gap-3" id="channel-list">
+            {% for ct in channel_types %}
+            <label class="flex items-center gap-2 bg-mcc-bg rounded p-3 cursor-pointer hover:bg-mcc-border/30 transition-colors">
+                <input type="checkbox" class="wiz-channel rounded" value="{{ ct }}" data-name="{{ ct|replace('_', ' ')|title }}">
+                <span class="text-xs">{{ ct|replace('_', ' ')|title }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% elif current_step == 3 %}
+    <!-- Tool Stack -->
+    <div class="space-y-3">
+        <p class="text-xs text-mcc-muted">Add tools by category:</p>
+        <div id="tool-list" class="space-y-2">
+            <div class="flex gap-2">
+                <input type="text" class="mcc-input flex-1 text-xs" placeholder="Tool name" id="new-tool-name">
+                <select class="mcc-select text-xs" id="new-tool-cat">
+                    {% for cat in tool_categories %}
+                    <option value="{{ cat }}">{{ cat|replace('_', ' ')|title }}</option>
+                    {% endfor %}
+                </select>
+                <button onclick="addTool()" class="px-3 py-1 rounded text-xs bg-mcc-accent text-white hover:bg-mcc-accent/80">Add</button>
+            </div>
+        </div>
+        <div id="added-tools" class="space-y-1 mt-2"></div>
+    </div>
+
+    {% elif current_step == 4 %}
+    <!-- Milestones -->
+    <div class="space-y-3">
+        <p class="text-xs text-mcc-muted">Key milestones for the project:</p>
+        <div class="text-xs text-mcc-muted bg-mcc-bg rounded p-3">
+            Milestones are best defined after the project is created. Proceed to set up tasks and automations.
+        </div>
+    </div>
+
+    {% elif current_step == 5 %}
+    <!-- Task Generation -->
+    <div class="space-y-3">
+        <p class="text-xs text-mcc-muted">Generate initial tasks. These are common setup tasks for a new marketing project:</p>
+        <div class="space-y-2" id="task-suggestions">
+            {% set common_tasks = [
+                "Set up email marketing platform",
+                "Configure analytics tracking",
+                "Create landing page",
+                "Set up social media profiles",
+                "Write initial email nurture sequence",
+                "Design brand assets",
+                "Set up payment processing",
+                "Create content calendar",
+                "Write launch announcement",
+                "Set up referral program",
+            ] %}
+            {% for task in common_tasks %}
+            <label class="flex items-center gap-2 bg-mcc-bg rounded p-2 cursor-pointer">
+                <input type="checkbox" class="wiz-task rounded" checked value="{{ task }}">
+                <span class="text-xs">{{ task }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% elif current_step == 6 %}
+    <!-- Automation Planning -->
+    <div class="space-y-3">
+        <p class="text-xs text-mcc-muted">Common automations to plan:</p>
+        <div class="text-xs text-mcc-muted bg-mcc-bg rounded p-3 space-y-2">
+            <p>Automations are configured after project creation. Key types to plan:</p>
+            <ul class="list-disc list-inside space-y-1">
+                <li>Email nurture sequences (drip campaigns)</li>
+                <li>Social media scheduling (Buffer/Hootsuite)</li>
+                <li>Lead scoring automation</li>
+                <li>Webhook pipelines for integrations</li>
+                <li>Scheduled reports and digests</li>
+            </ul>
+        </div>
+    </div>
+
+    {% elif current_step == 7 %}
+    <!-- Review & Launch -->
+    <div class="space-y-4">
+        <p class="text-xs text-mcc-muted">Review your project setup and create it:</p>
+        <div class="bg-mcc-bg rounded p-4 text-xs space-y-2" id="review-summary">
+            <p class="text-mcc-muted">Fill in the wizard steps to see a summary here.</p>
+        </div>
+
+        <form method="post" action="/wizard/create-project" id="wizard-form">
+            <input type="hidden" name="name" id="form-name">
+            <input type="hidden" name="slug" id="form-slug">
+            <input type="hidden" name="launch_date" id="form-launch">
+            <input type="hidden" name="monthly_budget" id="form-budget" value="0">
+            <input type="hidden" name="notes" id="form-notes">
+            <input type="hidden" name="channels_json" id="form-channels" value="[]">
+            <input type="hidden" name="tools_json" id="form-tools" value="[]">
+            <input type="hidden" name="tasks_json" id="form-tasks" value="[]">
+            <input type="hidden" name="budget_json" id="form-budget-alloc" value="[]">
+            <button type="submit" class="w-full px-4 py-3 rounded bg-mcc-accent text-white font-medium hover:bg-mcc-accent/80 transition-colors">
+                Create Project
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Navigation -->
+    <div class="flex items-center justify-between mt-6 pt-4 border-t border-mcc-border">
+        {% if current_step > 1 %}
+        <button hx-get="/wizard/step/{{ current_step - 1 }}" hx-target="#wizard-step-content" hx-swap="innerHTML"
+                class="px-4 py-2 rounded text-xs border border-mcc-border text-mcc-muted hover:text-mcc-text hover:border-mcc-accent transition-colors">
+            &larr; Back
+        </button>
+        {% else %}
+        <div></div>
+        {% endif %}
+
+        {% if current_step < 7 %}
+        <button hx-get="/wizard/step/{{ current_step + 1 }}" hx-target="#wizard-step-content" hx-swap="innerHTML"
+                class="px-4 py-2 rounded text-xs bg-mcc-accent text-white hover:bg-mcc-accent/80 transition-colors">
+            Next &rarr;
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+{% if current_step == 3 %}
+<script>
+var wizTools = [];
+function addTool() {
+    var name = document.getElementById('new-tool-name').value;
+    var cat = document.getElementById('new-tool-cat').value;
+    if (!name) return;
+    wizTools.push({name: name, category: cat});
+    var el = document.createElement('div');
+    el.className = 'flex items-center gap-2 bg-mcc-bg rounded p-2 text-xs';
+    el.innerHTML = '<span class="text-mcc-text">' + name + '</span><span class="text-mcc-muted">(' + cat.replace(/_/g, ' ') + ')</span>';
+    document.getElementById('added-tools').appendChild(el);
+    document.getElementById('new-tool-name').value = '';
+}
+</script>
+{% endif %}

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Connected Tools{% endblock %}
+{% block page_title %}Connected Tools{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-5 gap-4 mb-6">
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold">{{ total }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Registered</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold text-mcc-success">{{ health_counts.get('online', 0) }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Online</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold text-mcc-warning">{{ health_counts.get('degraded', 0) }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Degraded</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold text-mcc-critical">{{ health_counts.get('offline', 0) }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Offline</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold text-mcc-muted">{{ health_counts.get('unknown', 0) }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Unknown</div>
+    </div>
+</div>
+
+<!-- Tools Table -->
+<div class="bg-mcc-card rounded-lg border border-mcc-border overflow-hidden mb-6">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-mcc-border text-[10px] text-mcc-muted uppercase">
+                <th class="text-left py-3 px-4">Status</th>
+                <th class="text-left py-3 px-4">Tool</th>
+                <th class="text-left py-3 px-4">Type</th>
+                <th class="text-left py-3 px-4">Platform</th>
+                <th class="text-left py-3 px-4">Last Heartbeat</th>
+                <th class="text-center py-3 px-4">Heartbeats</th>
+                <th class="text-center py-3 px-4">Metrics</th>
+                <th class="text-center py-3 px-4">Alerts</th>
+                <th class="text-left py-3 px-4">Owner</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in tool_data %}
+            <tr class="border-b border-mcc-border/30 hover:bg-mcc-bg/30 cursor-pointer"
+                onclick="window.location.href='/tools/{{ d['tool'].id }}'">
+                <td class="py-3 px-4">
+                    <span class="health-dot health-{% if d['tool'].health.value == 'online' %}healthy{% elif d['tool'].health.value == 'degraded' %}warning{% elif d['tool'].health.value == 'offline' %}critical{% else %}unknown{% endif %}"></span>
+                    <span class="text-[10px] ml-1
+                        {% if d['tool'].health.value == 'online' %}text-mcc-success
+                        {% elif d['tool'].health.value == 'degraded' %}text-mcc-warning
+                        {% elif d['tool'].health.value == 'offline' %}text-mcc-critical
+                        {% else %}text-mcc-muted{% endif %}">
+                        {{ d['tool'].health.value|capitalize }}
+                    </span>
+                </td>
+                <td class="py-3 px-4">
+                    <div class="text-xs font-medium">{{ d['tool'].name }}</div>
+                    {% if d['tool'].notes %}<div class="text-[10px] text-mcc-muted truncate max-w-[200px]">{{ d['tool'].notes }}</div>{% endif %}
+                </td>
+                <td class="py-3 px-4 text-xs text-mcc-muted">{{ d['tool'].tool_type.value.replace('_', ' ').title() }}</td>
+                <td class="py-3 px-4 text-xs text-mcc-muted">{{ d['tool'].platform }}</td>
+                <td class="py-3 px-4 text-xs font-mono">
+                    {% if d['tool'].last_heartbeat %}
+                    <div>{{ d['tool'].last_heartbeat.strftime('%b %d %H:%M') }}</div>
+                    <div class="text-[10px] {% if d['is_overdue'] %}text-mcc-critical{% else %}text-mcc-muted{% endif %}">
+                        {{ d['hours_since'] }}h ago{% if d['is_overdue'] %} (overdue){% endif %}
+                    </div>
+                    {% else %}
+                    <span class="text-mcc-muted">Never</span>
+                    {% endif %}
+                </td>
+                <td class="py-3 px-4 text-center text-xs font-mono text-mcc-muted">{{ d['tool'].total_heartbeats or 0 }}</td>
+                <td class="py-3 px-4 text-center text-xs font-mono text-mcc-muted">{{ d['tool'].total_metrics or 0 }}</td>
+                <td class="py-3 px-4 text-center text-xs font-mono text-mcc-muted">{{ d['tool'].total_alerts or 0 }}</td>
+                <td class="py-3 px-4 text-xs text-mcc-muted">{{ d['tool'].owner }}</td>
+            </tr>
+            {% endfor %}
+            {% if not tool_data %}
+            <tr><td colspan="9" class="py-8 text-center text-mcc-muted text-xs">No tools registered yet.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Tool Form -->
+<div class="bg-mcc-card rounded-lg border border-mcc-border p-5">
+    <h3 class="text-sm font-semibold tracking-tight mb-4">Register New Tool</h3>
+    <form action="/tools/add" method="post" class="space-y-4">
+        <div class="grid grid-cols-3 gap-4">
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Tool Name *</label>
+                <input type="text" name="name" class="mcc-input w-full" required placeholder="e.g. Scotty">
+            </div>
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Type</label>
+                <select name="tool_type" class="mcc-select w-full">
+                    {% for tt in tool_types %}
+                    <option value="{{ tt }}">{{ tt.replace('_', ' ').title() }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Platform</label>
+                <input type="text" name="platform" class="mcc-input w-full" placeholder="e.g. Mac Mini cron">
+            </div>
+        </div>
+        <div class="grid grid-cols-3 gap-4">
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Workspace Path</label>
+                <input type="text" name="workspace_path" class="mcc-input w-full" placeholder="e.g. ~/clawd/projects/scotty">
+            </div>
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Expected Heartbeat (hours)</label>
+                <input type="number" name="expected_heartbeat_hours" class="mcc-input w-full" placeholder="e.g. 24">
+            </div>
+            <div>
+                <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Owner</label>
+                <input type="text" name="owner" class="mcc-input w-full" value="phil">
+            </div>
+        </div>
+        <div>
+            <label class="text-[10px] text-mcc-muted uppercase tracking-wide block mb-1.5">Notes</label>
+            <input type="text" name="notes" class="mcc-input w-full" placeholder="Brief description of what this tool does">
+        </div>
+        <div class="flex justify-end">
+            <button type="submit" class="mcc-btn-primary">Register Tool</button>
+        </div>
+    </form>
+</div>
+
+<!-- API Usage Guide -->
+<div class="mt-6 bg-mcc-card rounded-lg border border-mcc-border p-5">
+    <h3 class="text-sm font-semibold tracking-tight mb-3">API Integration Guide</h3>
+    <div class="text-xs text-mcc-muted space-y-3">
+        <p>All tool API endpoints require the <code class="font-mono px-1 py-0.5 rounded bg-mcc-bg text-mcc-accent">X-Api-Key</code> header. Each registered tool gets a unique API key shown on its detail page.</p>
+        <div class="grid grid-cols-3 gap-4">
+            <div class="bg-mcc-bg rounded-lg p-3">
+                <div class="text-[10px] uppercase text-mcc-accent font-semibold mb-1">Heartbeat</div>
+                <code class="font-mono text-[11px] text-mcc-text">POST /api/tools/heartbeat</code>
+                <div class="mt-1 text-[10px]">Send periodic health check-ins</div>
+            </div>
+            <div class="bg-mcc-bg rounded-lg p-3">
+                <div class="text-[10px] uppercase text-mcc-accent font-semibold mb-1">Metrics</div>
+                <code class="font-mono text-[11px] text-mcc-text">POST /api/tools/metrics</code>
+                <div class="mt-1 text-[10px]">Report metrics from tool runs</div>
+            </div>
+            <div class="bg-mcc-bg rounded-lg p-3">
+                <div class="text-[10px] uppercase text-mcc-accent font-semibold mb-1">Alert</div>
+                <code class="font-mono text-[11px] text-mcc-text">POST /api/tools/alert</code>
+                <div class="mt-1 text-[10px]">Send alerts that appear in AI Insights</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}

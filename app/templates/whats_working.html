@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}What's Working{% endblock %}
+{% block page_title %}What's Working{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<div class="space-y-6">
+
+    <!-- Channel ROI Attribution -->
+    <div class="bg-mcc-card rounded-lg border border-mcc-border overflow-hidden">
+        <div class="px-4 py-3 border-b border-mcc-border">
+            <h3 class="text-sm font-semibold">Channel ROI Attribution</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-mcc-border text-[10px] text-mcc-muted uppercase">
+                        <th class="text-left py-3 px-4">Channel</th>
+                        <th class="text-right py-3 px-4">Leads</th>
+                        <th class="text-right py-3 px-4">Trials</th>
+                        <th class="text-right py-3 px-4">Conversions</th>
+                        <th class="text-right py-3 px-4">MRR</th>
+                        <th class="text-right py-3 px-4">Spend</th>
+                        <th class="text-right py-3 px-4">CAC</th>
+                        <th class="text-right py-3 px-4">LTV:CAC</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in channel_roi %}
+                    <tr class="border-b border-mcc-border/30 hover:bg-mcc-bg/30">
+                        <td class="py-3 px-4">
+                            <a href="/channels/{{ r['channel'].id }}" class="text-xs text-mcc-accent hover:underline">{{ r['channel'].name }}</a>
+                        </td>
+                        <td class="py-3 px-4 text-xs text-right font-mono">{{ r['leads'] }}</td>
+                        <td class="py-3 px-4 text-xs text-right font-mono">{{ r['trials'] }}</td>
+                        <td class="py-3 px-4 text-xs text-right font-mono font-bold">{{ r['conversions'] }}</td>
+                        <td class="py-3 px-4 text-xs text-right font-mono">${{ "%.0f"|format(r['mrr']) }}</td>
+                        <td class="py-3 px-4 text-xs text-right font-mono text-mcc-muted">${{ "%.0f"|format(r['spend']) }}</td>
+                        <td class="py-3 px-4 text-xs text-right font-mono
+                            {% if r['cac'] > 0 and r['cac'] < 20 %}text-mcc-success
+                            {% elif r['cac'] > 50 %}text-mcc-critical
+                            {% endif %}">
+                            {% if r['cac'] > 0 %}${{ "%.0f"|format(r['cac']) }}{% else %}--{% endif %}
+                        </td>
+                        <td class="py-3 px-4 text-xs text-right font-mono font-bold
+                            {% if r['ltv_cac'] > 3 %}text-mcc-success
+                            {% elif r['ltv_cac'] > 1 %}text-mcc-warning
+                            {% elif r['ltv_cac'] > 0 %}text-mcc-critical
+                            {% endif %}">
+                            {% if r['ltv_cac'] > 0 %}{{ r['ltv_cac'] }}x{% else %}--{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if not channel_roi %}
+        <div class="text-center py-8 text-mcc-muted text-xs">No channel data yet.</div>
+        {% endif %}
+    </div>
+
+    <!-- Messaging Leaderboard -->
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+        <h3 class="text-sm font-semibold mb-3">Content Leaderboard</h3>
+        {% if leaderboard %}
+        <div class="space-y-2">
+            {% for item in leaderboard %}
+            <div class="flex items-center gap-3 py-2 border-b border-mcc-border/30 last:border-0">
+                <span class="text-xs font-mono text-mcc-muted w-6 text-right">#{{ loop.index }}</span>
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-medium truncate">{{ item['piece'].title }}</div>
+                    <div class="flex items-center gap-2 text-[10px] text-mcc-muted">
+                        <span>{{ item['piece'].content_type.value.replace('_', ' ').title() }}</span>
+                        {% if item['piece'].series %}<span>&middot; {{ item['piece'].series }}</span>{% endif %}
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 text-xs font-mono">
+                    <div class="text-center">
+                        <div>{{ item['score'].views }}</div>
+                        <div class="text-[9px] text-mcc-muted">views</div>
+                    </div>
+                    <div class="text-center">
+                        <div>{{ item['score'].clicks }}</div>
+                        <div class="text-[9px] text-mcc-muted">clicks</div>
+                    </div>
+                    <div class="text-center">
+                        <div>{{ item['score'].conversions }}</div>
+                        <div class="text-[9px] text-mcc-muted">conv</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-mcc-accent font-bold">{{ item['score'].engagement_score }}</div>
+                        <div class="text-[9px] text-mcc-muted">score</div>
+                    </div>
+                </div>
+                {% if item['tags'] %}
+                <div class="flex gap-1 flex-wrap max-w-[150px]">
+                    {% for dim, vals in item['tags'].items() %}
+                    {% for v in vals[:2] %}
+                    <span class="text-[8px] px-1 py-0.5 rounded bg-mcc-accent/10 text-mcc-accent">{{ v }}</span>
+                    {% endfor %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-xs text-mcc-muted text-center py-8">No performance scores recorded yet. Score content from the content pipeline.</p>
+        {% endif %}
+    </div>
+
+    <!-- Cross-Channel Patterns -->
+    {% if tag_patterns %}
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+        <h3 class="text-sm font-semibold mb-3">Content Tag Patterns</h3>
+        <div class="grid grid-cols-3 gap-4">
+            {% for dim, vals in tag_patterns.items() %}
+            <div class="bg-mcc-bg rounded-lg p-3">
+                <div class="text-[10px] text-mcc-muted uppercase tracking-wide mb-2">{{ dim.replace('_', ' ').title() }}</div>
+                <div class="space-y-1">
+                    {% for val, count in vals %}
+                    <div class="flex items-center justify-between text-xs">
+                        <span>{{ val }}</span>
+                        <span class="font-mono text-mcc-muted">{{ count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+{% endif %}
+{% endblock %}

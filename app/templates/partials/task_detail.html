@@ -1,0 +1,221 @@
+{% set days_left = (task.due_date - today).days if task.due_date and task.status.value != 'done' else None %}
+
+<div class="space-y-4">
+    <!-- Header -->
+    <div class="flex items-start justify-between">
+        <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-2.5 h-2.5 rounded-full flex-shrink-0
+                    {% if task.priority.value == 'launch_critical' %}bg-mcc-critical
+                    {% elif task.priority.value == 'high' %}bg-mcc-warning
+                    {% elif task.priority.value == 'medium' %}bg-mcc-secondary
+                    {% elif task.priority.value == 'low' %}bg-mcc-muted
+                    {% else %}bg-mcc-border{% endif %}"></span>
+                <span class="text-[10px] uppercase tracking-wider text-mcc-muted">{{ task.priority.value.replace('_', ' ') }}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-mcc-bg text-mcc-muted">{{ task.status.value.replace('_', ' ').title() }}</span>
+            </div>
+            <h2 class="text-base font-semibold">{{ task.title }}</h2>
+        </div>
+        <button onclick="closeDetailModal()" class="text-mcc-muted hover:text-mcc-text p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    </div>
+
+    <!-- Deadline with countdown -->
+    {% if task.due_date %}
+    <div class="p-3 rounded-lg border
+        {% if days_left is not none and days_left < 0 %}bg-mcc-critical/10 border-mcc-critical/30
+        {% elif days_left is not none and days_left <= 1 %}bg-mcc-critical/5 border-mcc-critical/20
+        {% elif days_left is not none and days_left <= 4 %}bg-mcc-warning/10 border-mcc-warning/30
+        {% elif task.status.value == 'done' %}bg-mcc-success/10 border-mcc-success/30
+        {% else %}bg-mcc-bg border-mcc-border{% endif %}">
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-mcc-muted">Deadline</span>
+            <span class="text-sm font-semibold
+                {% if days_left is not none and days_left < 0 %}text-mcc-critical
+                {% elif days_left is not none and days_left <= 1 %}text-mcc-critical
+                {% elif days_left is not none and days_left <= 4 %}text-mcc-warning
+                {% elif task.status.value == 'done' %}text-mcc-success
+                {% else %}text-mcc-text{% endif %}">
+                {{ task.due_date.strftime('%B %d, %Y') }}
+                {% if task.status.value == 'done' %}
+                    — Completed
+                {% elif days_left is not none %}
+                    {% if days_left < 0 %} — {{ -days_left }} day{{ 's' if -days_left != 1 }} overdue
+                    {% elif days_left == 0 %} — Due today
+                    {% elif days_left == 1 %} — Due tomorrow
+                    {% else %} — {{ days_left }} days left
+                    {% endif %}
+                {% endif %}
+            </span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Notes -->
+    <div>
+        <div class="flex items-center justify-between mb-1">
+            <label class="text-xs text-mcc-muted">Notes</label>
+            <span id="notes-save-status-{{ task.id }}"></span>
+        </div>
+        <textarea id="task-notes-{{ task.id }}" name="description" rows="3"
+                  placeholder="Add context, blockers, details..."
+                  hx-post="/tasks/{{ task.id }}/save-notes"
+                  hx-trigger="blur"
+                  hx-target="#notes-save-status-{{ task.id }}"
+                  hx-swap="innerHTML"
+                  class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text placeholder-mcc-muted resize-y min-h-[60px] focus:border-mcc-accent/50 focus:outline-none transition-colors">{{ task.description or '' }}</textarea>
+    </div>
+
+    <!-- Checklist -->
+    <div>
+        <label class="text-xs text-mcc-muted block mb-2">Checklist</label>
+        <div id="checklist-{{ task.id }}" class="bg-mcc-bg rounded-lg p-3">
+            {% if checklist %}
+            {% set completed_count = checklist|selectattr('completed')|list|length %}
+            {% set total_count = checklist|length %}
+            {% set pct = ((completed_count / total_count) * 100)|int if total_count > 0 else 0 %}
+            <div class="mb-2">
+                <div class="flex items-center justify-between text-[10px] text-mcc-muted mb-1">
+                    <span>{{ completed_count }}/{{ total_count }} completed</span>
+                    <span>{{ pct }}%</span>
+                </div>
+                <div class="w-full h-1.5 bg-mcc-card rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all duration-300
+                        {% if pct == 100 %}bg-mcc-success{% else %}bg-mcc-accent{% endif %}"
+                         style="width: {{ pct }}%"></div>
+                </div>
+            </div>
+            {% for item in checklist %}
+            <div class="flex items-center gap-2 py-1 group">
+                <input type="checkbox" {% if item.completed %}checked{% endif %}
+                       hx-post="/checklist/toggle/{{ item.id }}"
+                       hx-target="#checklist-{{ task.id }}"
+                       hx-swap="innerHTML"
+                       class="w-3.5 h-3.5 rounded accent-mcc-accent cursor-pointer">
+                <span class="text-xs flex-1 {% if item.completed %}line-through text-mcc-muted{% endif %}">{{ item.title }}</span>
+                <button hx-post="/checklist/delete/{{ item.id }}"
+                        hx-target="#checklist-{{ task.id }}"
+                        hx-swap="innerHTML"
+                        class="hidden group-hover:block text-mcc-muted hover:text-mcc-critical text-xs px-1">&times;</button>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="text-xs text-mcc-muted py-1">No checklist items yet</div>
+            {% endif %}
+        </div>
+        <!-- Add checklist item -->
+        <form hx-post="/checklist/add/{{ task.id }}" hx-target="#checklist-{{ task.id }}" hx-swap="innerHTML"
+              class="flex gap-2 mt-2" onsubmit="setTimeout(() => this.reset(), 100)">
+            <input type="text" name="title" placeholder="Add subtask..."
+                   class="flex-1 bg-mcc-bg border border-mcc-border rounded-lg px-3 py-1.5 text-xs text-mcc-text placeholder-mcc-muted" required>
+            <button type="submit" class="px-3 py-1.5 bg-mcc-accent text-white rounded-lg text-xs hover:bg-mcc-accent/80">Add</button>
+        </form>
+    </div>
+
+    <!-- Meta grid -->
+    <div class="grid grid-cols-2 gap-3 text-xs">
+        <div>
+            <span class="text-mcc-muted block mb-0.5">Assigned to</span>
+            <span class="capitalize font-medium">{{ task.assigned_to }}</span>
+        </div>
+        <div>
+            <span class="text-mcc-muted block mb-0.5">Channel</span>
+            <span class="font-medium">
+                {% if task.channel_id and channel_map and task.channel_id in channel_map %}
+                    <a href="/channels/{{ task.channel_id }}" class="text-mcc-accent hover:underline">{{ channel_map[task.channel_id].name }}</a>
+                {% else %}None{% endif %}
+            </span>
+        </div>
+        {% if task.estimated_hours %}
+        <div>
+            <span class="text-mcc-muted block mb-0.5">Est. hours</span>
+            <span class="font-medium">{{ task.estimated_hours }}h</span>
+        </div>
+        {% endif %}
+        {% if task.start_date %}
+        <div>
+            <span class="text-mcc-muted block mb-0.5">Start date</span>
+            <span class="font-medium">{{ task.start_date.strftime('%b %d, %Y') }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Dependencies -->
+    {% if (task.blocked_by and task.blocked_by|length > 0) or (task.blocks and task.blocks|length > 0) %}
+    <div class="space-y-2">
+        {% if task.blocked_by and task.blocked_by|length > 0 %}
+        <div>
+            <span class="text-xs text-mcc-muted block mb-1">Blocked by</span>
+            <div class="space-y-1">
+                {% for tid in task.blocked_by %}
+                {% if all_tasks %}
+                {% set dep = all_tasks|selectattr('id', 'equalto', tid|int)|first %}
+                {% if dep %}
+                <div class="text-xs px-2 py-1 bg-mcc-critical/10 rounded border border-mcc-critical/20">
+                    <span class="text-mcc-critical">#{{ tid }}</span> {{ dep.title }}
+                </div>
+                {% endif %}
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% if task.blocks and task.blocks|length > 0 %}
+        <div>
+            <span class="text-xs text-mcc-muted block mb-1">Blocks</span>
+            <div class="space-y-1">
+                {% for tid in task.blocks %}
+                {% if all_tasks %}
+                {% set dep = all_tasks|selectattr('id', 'equalto', tid|int)|first %}
+                {% if dep %}
+                <div class="text-xs px-2 py-1 bg-mcc-warning/10 rounded border border-mcc-warning/20">
+                    <span class="text-mcc-warning">#{{ tid }}</span> {{ dep.title }}
+                </div>
+                {% endif %}
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Monitoring info -->
+    {% if task.monitoring_metric %}
+    <div class="p-3 bg-mcc-warning/10 rounded-lg border border-mcc-warning/20">
+        <span class="text-xs text-mcc-muted block mb-1">Monitoring</span>
+        <div class="text-sm font-medium text-mcc-warning">{{ task.monitoring_metric }}</div>
+        {% if task.monitoring_threshold %}
+        <div class="text-xs text-mcc-muted mt-1">Threshold: {{ task.monitoring_threshold }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Action buttons -->
+    <div class="flex gap-2 pt-3 border-t border-mcc-border">
+        <div class="flex-1 relative">
+            <select onchange="if(this.value) moveTaskFromModal({{ task.id }}, this.value)"
+                    class="w-full px-3 py-2 bg-mcc-accent/15 text-mcc-accent border border-mcc-accent/30 rounded-lg text-xs font-medium appearance-none cursor-pointer hover:bg-mcc-accent/25 transition-colors pr-7">
+                <option value="" selected>Move to&hellip;</option>
+                <option value="backlog" {% if task.status.value == 'backlog' %}disabled{% endif %}>Backlog</option>
+                <option value="this_week" {% if task.status.value == 'this_week' %}disabled{% endif %}>This Week</option>
+                <option value="in_progress" {% if task.status.value == 'in_progress' %}disabled{% endif %}>In Progress</option>
+                <option value="blocked" {% if task.status.value == 'blocked' %}disabled{% endif %}>Blocked</option>
+                <option value="done" {% if task.status.value == 'done' %}disabled{% endif %}>Done</option>
+                <option value="monitoring" {% if task.status.value == 'monitoring' %}disabled{% endif %}>Monitoring</option>
+                <option value="recurring" {% if task.status.value == 'recurring' %}disabled{% endif %}>Recurring</option>
+            </select>
+            <svg class="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 text-mcc-accent pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <button onclick="saveTaskNotes({{ task.id }}); closeDetailModal(); openEditModal({{ task.id }})"
+                class="px-3 py-2 bg-mcc-border text-mcc-text rounded-lg text-xs font-medium hover:bg-mcc-border/80">
+            Edit
+        </button>
+        <button hx-post="/tasks/{{ task.id }}/delete" hx-swap="none"
+                onclick="if(!confirm('Delete this task?'))event.preventDefault(); else{closeDetailModal(); setTimeout(() => window.location.reload(), 300)}"
+                class="px-3 py-2 bg-mcc-critical/10 text-mcc-critical rounded-lg text-xs font-medium hover:bg-mcc-critical/20">
+            Delete
+        </button>
+    </div>
+</div>

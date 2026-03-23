@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Competitors{% endblock %}
+{% block page_title %}Competitive Intelligence{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    {% if not project %}
+    <div class="text-center py-12 text-mcc-muted">No project loaded</div>
+    {% else %}
+
+    <!-- Review Alerts -->
+    {% if needs_review %}
+    <div class="bg-mcc-warning/10 border border-mcc-warning/30 rounded-lg p-3">
+        <div class="text-xs text-mcc-warning font-medium">Monthly Review Due</div>
+        <div class="text-[10px] text-mcc-muted mt-1">
+            {% for c in needs_review %}{{ c.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+            — last checked 30+ days ago
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-3 gap-6">
+        <!-- Comparison Table -->
+        <div class="col-span-2">
+            {% if competitors %}
+            <div class="bg-mcc-card border border-mcc-border rounded-lg overflow-hidden">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="border-b border-mcc-border">
+                            <th class="text-left px-4 py-3 text-mcc-muted font-medium">Competitor</th>
+                            <th class="text-left px-4 py-3 text-mcc-muted font-medium">Pricing</th>
+                            <th class="text-left px-4 py-3 text-mcc-muted font-medium">Strengths</th>
+                            <th class="text-left px-4 py-3 text-mcc-muted font-medium">Weaknesses</th>
+                            <th class="text-left px-4 py-3 text-mcc-muted font-medium">Last Checked</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for comp in competitors %}
+                        <tr class="border-b border-mcc-border/50 hover:bg-mcc-bg/30 cursor-pointer"
+                            onclick="window.location.href='/competitors/{{ comp.id }}'">
+                            <td class="px-4 py-3">
+                                <div class="font-medium">{{ comp.name }}</div>
+                                {% if comp.website %}
+                                <div class="text-[10px] text-mcc-muted">{{ comp.website }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-mcc-muted">{{ comp.pricing_summary[:60] }}{% if comp.pricing_summary|length > 60 %}...{% endif %}</td>
+                            <td class="px-4 py-3 text-mcc-success/80">{{ comp.strengths[:50] }}{% if comp.strengths|length > 50 %}...{% endif %}</td>
+                            <td class="px-4 py-3 text-mcc-warning/80">{{ comp.weaknesses[:50] }}{% if comp.weaknesses|length > 50 %}...{% endif %}</td>
+                            <td class="px-4 py-3 text-mcc-muted">
+                                {{ comp.last_checked.strftime('%b %d') if comp.last_checked else 'Never' }}
+                                {% if comp.recent_updates %}
+                                <div class="text-[10px]">{{ comp.recent_updates|length }} update{{ 's' if comp.recent_updates|length != 1 }}</div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12 text-mcc-muted text-sm">No competitors tracked yet</div>
+            {% endif %}
+        </div>
+
+        <!-- Add Competitor -->
+        <div class="space-y-4">
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-4">
+                <h3 class="font-semibold text-sm mb-3">Add Competitor</h3>
+                <form method="post" action="/competitors/create" class="space-y-3">
+                    <input type="text" name="name" placeholder="Company name" required class="mcc-input w-full text-xs">
+                    <input type="text" name="website" placeholder="Website URL" class="mcc-input w-full text-xs">
+                    <input type="text" name="pricing_summary" placeholder="Pricing summary" class="mcc-input w-full text-xs">
+                    <input type="text" name="positioning_summary" placeholder="Positioning" class="mcc-input w-full text-xs">
+                    <textarea name="strengths" rows="2" placeholder="Strengths" class="mcc-input w-full text-xs"></textarea>
+                    <textarea name="weaknesses" rows="2" placeholder="Weaknesses" class="mcc-input w-full text-xs"></textarea>
+                    <button type="submit" class="w-full px-3 py-2 rounded text-xs bg-mcc-accent text-white hover:bg-mcc-accent/80">
+                        Add Competitor
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}

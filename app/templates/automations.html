@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Automations{% endblock %}
+{% block page_title %}Automation Registry{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-5 gap-4 mb-6">
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold">{{ total }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Total</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold text-mcc-success">{{ health_counts.get('running', 0) }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Running</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold text-mcc-warning">{{ health_counts.get('stale', 0) }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Stale</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold text-mcc-critical">{{ health_counts.get('failed', 0) }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Failed</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold text-mcc-muted">{{ health_counts.get('paused', 0) + health_counts.get('unknown', 0) }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Paused/Unknown</div>
+    </div>
+</div>
+
+<!-- Automations Table -->
+<div class="bg-mcc-card rounded-lg border border-mcc-border overflow-hidden">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-mcc-border text-[10px] text-mcc-muted uppercase">
+                <th class="text-left py-3 px-4">Status</th>
+                <th class="text-left py-3 px-4">Name</th>
+                <th class="text-left py-3 px-4">Type</th>
+                <th class="text-left py-3 px-4">Channel</th>
+                <th class="text-left py-3 px-4">Platform</th>
+                <th class="text-left py-3 px-4">Schedule</th>
+                <th class="text-left py-3 px-4">Last Run</th>
+                <th class="text-left py-3 px-4">Next Expected</th>
+                <th class="text-left py-3 px-4">Owner</th>
+                <th class="text-center py-3 px-4">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in auto_data %}
+            <tr class="border-b border-mcc-border/30 hover:bg-mcc-bg/30">
+                <td class="py-3 px-4">
+                    <span class="health-dot health-{{ d['auto'].health.value }}"></span>
+                    <span class="text-[10px] ml-1
+                        {% if d['auto'].health.value == 'running' %}text-mcc-success
+                        {% elif d['auto'].health.value == 'stale' %}text-mcc-warning
+                        {% elif d['auto'].health.value == 'failed' %}text-mcc-critical
+                        {% else %}text-mcc-muted{% endif %}">
+                        {{ d['auto'].health.value|capitalize }}
+                    </span>
+                </td>
+                <td class="py-3 px-4">
+                    <div class="text-xs font-medium">{{ d['auto'].name }}</div>
+                    {% if d['auto'].notes %}<div class="text-[10px] text-mcc-muted truncate max-w-[200px]">{{ d['auto'].notes }}</div>{% endif %}
+                </td>
+                <td class="py-3 px-4 text-xs text-mcc-muted">{{ d['auto'].automation_type.value.replace('_', ' ').title() }}</td>
+                <td class="py-3 px-4 text-xs text-mcc-muted">{{ d['channel_name'] }}</td>
+                <td class="py-3 px-4 text-xs text-mcc-muted">{{ d['auto'].platform }}</td>
+                <td class="py-3 px-4 text-xs font-mono text-mcc-muted">
+                    {% if d['auto'].schedule %}{{ d['auto'].schedule }}{% else %}--{% endif %}
+                </td>
+                <td class="py-3 px-4 text-xs font-mono">
+                    {% if d['auto'].last_confirmed_run %}
+                    <div>{{ d['auto'].last_confirmed_run.strftime('%b %d %H:%M') }}</div>
+                    <div class="text-[10px] text-mcc-muted">{{ d['hours_since_run'] }}h ago</div>
+                    {% else %}
+                    <span class="text-mcc-muted">Never</span>
+                    {% endif %}
+                </td>
+                <td class="py-3 px-4 text-xs font-mono">
+                    {% if d['next_expected'] %}
+                    <span class="{% if d['is_overdue'] %}text-mcc-critical{% else %}text-mcc-muted{% endif %}">
+                        {{ d['next_expected'].strftime('%b %d %H:%M') }}
+                        {% if d['is_overdue'] %} (overdue){% endif %}
+                    </span>
+                    {% else %}
+                    <span class="text-mcc-muted">--</span>
+                    {% endif %}
+                </td>
+                <td class="py-3 px-4 text-xs text-mcc-muted">{{ d['auto'].owner }}</td>
+                <td class="py-3 px-4 text-center">
+                    <div class="flex items-center justify-center gap-2">
+                        <button class="text-[10px] px-2 py-1 rounded bg-mcc-success/15 text-mcc-success hover:bg-mcc-success/25 transition-colors"
+                                hx-post="/automations/confirm-run/{{ d['auto'].id }}" hx-target="closest td" hx-swap="innerHTML">
+                            Confirm Run
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Connected Tools -->
+{% if connected_tools %}
+<div class="mt-6 bg-mcc-card rounded-lg border border-mcc-border p-4">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold tracking-tight">Connected Tools</h3>
+        <a href="/tools" class="text-[11px] text-mcc-accent hover:text-mcc-accent/80 transition-colors">Manage</a>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {% for td in connected_tools %}
+        <a href="/tools/{{ td['tool'].id }}" class="bg-mcc-bg rounded-lg p-3 border border-mcc-border/50 hover:border-mcc-border transition-all group">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="health-dot health-{% if td['tool'].health.value == 'online' %}healthy{% elif td['tool'].health.value == 'degraded' %}warning{% elif td['tool'].health.value == 'offline' %}critical{% else %}unknown{% endif %}"></span>
+                <span class="text-xs font-medium group-hover:text-mcc-accent transition-colors">{{ td['tool'].name }}</span>
+            </div>
+            <div class="text-[10px] text-mcc-muted">{{ td['tool'].platform }}</div>
+            {% if td['tool'].last_heartbeat %}
+            <div class="text-[10px] font-mono text-mcc-dim mt-1">{{ td['hours_since'] }}h ago</div>
+            {% else %}
+            <div class="text-[10px] text-mcc-dim mt-1">No heartbeat</div>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Timeline View -->
+<div class="mt-6 bg-mcc-card rounded-lg border border-mcc-border p-4">
+    <h3 class="text-sm font-semibold mb-4">Run Timeline (Last 48h)</h3>
+    <div class="space-y-3">
+        {% for d in auto_data %}
+        <div class="flex items-center gap-3">
+            <div class="w-40 text-xs truncate text-mcc-muted">{{ d['auto'].name }}</div>
+            <div class="flex-1 relative h-6 bg-mcc-bg rounded">
+                {% if d['auto'].last_confirmed_run %}
+                {% set hours_ago = d['hours_since_run'] if d['hours_since_run'] else 0 %}
+                {% set pct = [((48 - hours_ago) / 48 * 100)|int, 0]|max %}
+                <div class="absolute h-6 rounded-l flex items-center justify-end pr-1
+                    {% if d['auto'].health.value == 'running' %}bg-mcc-success/20
+                    {% elif d['auto'].health.value == 'stale' %}bg-mcc-warning/20
+                    {% elif d['auto'].health.value == 'failed' %}bg-mcc-critical/20
+                    {% else %}bg-mcc-muted/20{% endif %}"
+                    style="width: {{ [pct, 100]|min }}%; left: 0;">
+                    <span class="text-[9px] font-mono text-mcc-muted">{{ d['hours_since_run'] }}h</span>
+                </div>
+                {% else %}
+                <div class="h-6 flex items-center justify-center text-[9px] text-mcc-muted">No runs recorded</div>
+                {% endif %}
+            </div>
+            <span class="health-dot health-{{ d['auto'].health.value }}"></span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="flex justify-between text-[9px] text-mcc-muted mt-1 px-40">
+        <span>48h ago</span>
+        <span>24h ago</span>
+        <span>Now</span>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}

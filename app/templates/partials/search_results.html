@@ -1,0 +1,21 @@
+<!-- Search Results -->
+<div class="p-2">
+    {% if not query or query|length < 2 %}
+    <div class="text-xs text-mcc-muted text-center py-4">Type at least 2 characters to search...</div>
+    {% elif total == 0 %}
+    <div class="text-xs text-mcc-muted text-center py-4">No results for "{{ query }}"</div>
+    {% else %}
+    <div class="text-[10px] text-mcc-muted mb-2">{{ total }} result{{ 's' if total != 1 }} for "{{ query }}"</div>
+    {% for group in groups %}
+    <div class="mb-3">
+        <div class="text-[10px] uppercase tracking-wider text-mcc-muted font-semibold mb-1 px-2">{{ group.type }}</div>
+        {% for item in group.results %}
+        <a href="{{ item.url }}" class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-mcc-border/30 transition-colors">
+            <span class="text-xs text-mcc-text truncate">{{ item.title }}</span>
+            <span class="text-[10px] text-mcc-muted flex-shrink-0 ml-2">{{ item.subtitle }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>

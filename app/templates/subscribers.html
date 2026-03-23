@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Subscribers{% endblock %}
+{% block page_title %}Subscribers{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<!-- Summary Row -->
+<div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+        <div class="text-mcc-muted text-xs uppercase tracking-wide mb-1">Total Subscribers</div>
+        <div class="text-3xl font-bold font-mono">{{ total_subs }}</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+        <div class="text-mcc-muted text-xs uppercase tracking-wide mb-1">Monthly Recurring Revenue</div>
+        <div class="text-3xl font-bold font-mono text-mcc-success">${{ "%.2f"|format(total_mrr) }}</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+        <div class="text-mcc-muted text-xs uppercase tracking-wide mb-1">Funnel Stages</div>
+        <div class="text-3xl font-bold font-mono">{{ stages|selectattr('count', 'gt', 0)|list|length }}</div>
+        <div class="text-xs text-mcc-muted mt-1">of {{ stages|length }} active</div>
+    </div>
+</div>
+
+<!-- Funnel Visualization -->
+<div class="bg-mcc-card rounded-lg border border-mcc-border p-6 mb-6">
+    <h2 class="text-sm font-semibold mb-4">Subscriber Funnel</h2>
+
+    {% set max_count = stages|map(attribute='count')|max if stages else 1 %}
+    {% set max_count = max_count if max_count > 0 else 1 %}
+
+    <div class="space-y-3">
+        {% for stage in stages %}
+        <div class="flex items-center gap-4">
+            <div class="w-44 text-xs text-right text-mcc-muted flex-shrink-0">{{ stage.label }}</div>
+            <div class="flex-1 bg-mcc-bg rounded-full h-8 relative overflow-hidden">
+                {% set pct = (stage.count / max_count * 100)|int %}
+                <div class="h-full rounded-full flex items-center transition-all duration-500"
+                     style="width: {{ pct if pct > 0 else 1 }}%; background-color: {{ stage.color }}; min-width: {% if stage.count > 0 %}2rem{% else %}0{% endif %};">
+                    {% if stage.count > 0 %}
+                    <span class="text-xs font-medium text-white px-3">{{ stage.count }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="w-20 text-right flex-shrink-0">
+                {% if stage.mrr > 0 %}
+                <span class="text-xs text-mcc-success font-mono">${{ "%.0f"|format(stage.mrr) }}/mo</span>
+                {% else %}
+                <span class="text-xs text-mcc-muted">--</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Funnel Table -->
+<div class="bg-mcc-card rounded-lg border border-mcc-border p-4 mb-6">
+    <h3 class="text-sm font-semibold mb-3">Stage Breakdown</h3>
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-mcc-border text-xs text-mcc-muted uppercase">
+                <th class="text-left py-2 px-3">Stage</th>
+                <th class="text-right py-2 px-3">Count</th>
+                <th class="text-right py-2 px-3">% of Total</th>
+                <th class="text-right py-2 px-3">MRR</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for stage in stages %}
+            <tr class="border-b border-mcc-border/50 hover:bg-mcc-bg/30">
+                <td class="py-2 px-3 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full" style="background-color: {{ stage.color }};"></span>
+                    {{ stage.label }}
+                </td>
+                <td class="py-2 px-3 text-right font-mono">{{ stage.count }}</td>
+                <td class="py-2 px-3 text-right font-mono text-mcc-muted">
+                    {{ "%.1f"|format(stage.count / total_subs * 100) if total_subs > 0 else '0' }}%
+                </td>
+                <td class="py-2 px-3 text-right font-mono {% if stage.mrr > 0 %}text-mcc-success{% else %}text-mcc-muted{% endif %}">
+                    {% if stage.mrr > 0 %}${{ "%.2f"|format(stage.mrr) }}{% else %}--{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="text-sm font-semibold">
+                <td class="py-2 px-3">Total</td>
+                <td class="py-2 px-3 text-right font-mono">{{ total_subs }}</td>
+                <td class="py-2 px-3 text-right font-mono">100%</td>
+                <td class="py-2 px-3 text-right font-mono text-mcc-success">${{ "%.2f"|format(total_mrr) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<!-- Recent Events -->
+<div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+    <h3 class="text-sm font-semibold mb-3">Recent Events</h3>
+    {% if recent_events %}
+    <div class="space-y-2">
+        {% for event in recent_events %}
+        <div class="flex items-center gap-3 text-xs py-1.5 border-b border-mcc-border/50 last:border-0">
+            <span class="text-mcc-muted font-mono">{{ event.occurred_at.strftime('%b %d %H:%M') }}</span>
+            <span class="px-1.5 py-0.5 rounded bg-mcc-bg capitalize">{{ event.event_type.value.replace('_', ' ') }}</span>
+            <span class="text-mcc-muted">{{ event.email_hash[:8] }}...</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-xs text-mcc-muted py-4 text-center">No subscriber events recorded yet. Events will appear as subscribers move through the funnel.</p>
+    {% endif %}
+</div>
+
+{% endif %}
+{% endblock %}

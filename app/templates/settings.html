@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}Remote Operation{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Alert Levels -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Level 1: Internal -->
+        <div class="bg-mcc-card border border-mcc-border rounded-card p-5">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="w-2 h-2 rounded-full bg-mcc-success"></span>
+                <h3 class="text-sm font-semibold">Level 1: Dashboard</h3>
+            </div>
+            <p class="text-xs text-mcc-muted mb-3">Internal staleness detection. Always active — no config needed.</p>
+            <div class="text-xs">
+                <span class="text-mcc-success font-medium">Active</span>
+                {% if stale_autos %}
+                <span class="text-mcc-warning ml-2">{{ stale_autos|length }} stale</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Level 2: Telegram -->
+        <div class="bg-mcc-card border border-mcc-border rounded-card p-5">
+            <div class="flex items-center gap-2 mb-3">
+                {% if telegram_configured %}
+                <span class="w-2 h-2 rounded-full bg-mcc-success"></span>
+                {% else %}
+                <span class="w-2 h-2 rounded-full bg-mcc-warning"></span>
+                {% endif %}
+                <h3 class="text-sm font-semibold">Level 2: Telegram</h3>
+            </div>
+            <p class="text-xs text-mcc-muted mb-3">Push alerts for critical failures. Requires TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID in .env.</p>
+            {% if telegram_configured %}
+            <div class="flex items-center gap-3">
+                <span class="text-xs text-mcc-success font-medium">Configured</span>
+                <button hx-post="/settings/test-telegram" hx-swap="innerHTML" hx-target="#tg-result"
+                        class="text-xs text-mcc-accent hover:underline">Test</button>
+                <span id="tg-result"></span>
+            </div>
+            {% else %}
+            <span class="text-xs text-mcc-muted">Not configured</span>
+            {% endif %}
+        </div>
+
+        <!-- Level 3: Dead Man's Switch -->
+        <div class="bg-mcc-card border border-mcc-border rounded-card p-5">
+            <div class="flex items-center gap-2 mb-3">
+                {% if healthchecks_configured %}
+                <span class="w-2 h-2 rounded-full bg-mcc-success"></span>
+                {% else %}
+                <span class="w-2 h-2 rounded-full bg-mcc-warning"></span>
+                {% endif %}
+                <h3 class="text-sm font-semibold">Level 3: Dead Man's Switch</h3>
+            </div>
+            <p class="text-xs text-mcc-muted mb-3">External Healthchecks.io ping every 30min via cron. Alerts if Mac Mini goes silent.</p>
+            {% if healthchecks_configured %}
+            <div class="flex items-center gap-3">
+                <span class="text-xs text-mcc-success font-medium">Configured</span>
+                <button hx-post="/settings/test-healthchecks" hx-swap="innerHTML" hx-target="#hc-result"
+                        class="text-xs text-mcc-accent hover:underline">Test</button>
+                <span id="hc-result"></span>
+            </div>
+            {% else %}
+            <span class="text-xs text-mcc-muted">Not configured</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Pre-Travel Checklist + Full System Test -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Checklist -->
+        <div class="bg-mcc-card border border-mcc-border rounded-card p-5">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold">Pre-Travel Checklist</h3>
+                <button hx-post="/settings/test-all" hx-target="#full-test-results" hx-swap="innerHTML"
+                        class="px-3 py-1.5 text-xs font-medium bg-mcc-accent/10 text-mcc-accent border border-mcc-accent/20 rounded-lg hover:bg-mcc-accent/20 transition-colors">
+                    Run Full System Test
+                </button>
+            </div>
+
+            <div class="space-y-2.5">
+                <!-- Caffeinate -->
+                <div class="flex items-center justify-between py-1.5">
+                    <div class="flex items-center gap-2">
+                        {% if caffeinate.running %}
+                        <span class="text-mcc-success text-sm">&#10003;</span>
+                        {% else %}
+                        <span class="text-mcc-critical text-sm">&#10007;</span>
+                        {% endif %}
+                        <span class="text-xs">Sleep prevention (caffeinate)</span>
+                    </div>
+                    {% if not caffeinate.running %}
+                    <button hx-post="/settings/install-caffeinate" hx-swap="innerHTML" hx-target="#caff-result"
+                            class="text-[10px] text-mcc-accent hover:underline">Install</button>
+                    <span id="caff-result"></span>
+                    {% else %}
+                    <span class="text-[10px] text-mcc-muted font-mono">PID {{ caffeinate.pid }}</span>
+                    {% endif %}
+                </div>
+
+                <!-- Heartbeat Cron -->
+                <div class="flex items-center gap-2 py-1.5">
+                    {% if heartbeat_cron %}
+                    <span class="text-mcc-success text-sm">&#10003;</span>
+                    {% else %}
+                    <span class="text-mcc-critical text-sm">&#10007;</span>
+                    {% endif %}
+                    <span class="text-xs">Dead man's switch cron (*/30 * * * *)</span>
+                </div>
+
+                <!-- Backup Cron -->
+                <div class="flex items-center gap-2 py-1.5">
+                    {% if backup_cron %}
+                    <span class="text-mcc-success text-sm">&#10003;</span>
+                    {% else %}
+                    <span class="text-mcc-critical text-sm">&#10007;</span>
+                    {% endif %}
+                    <span class="text-xs">Daily backup cron (0 3 * * *)</span>
+                </div>
+
+                <!-- SSH -->
+                <div class="flex items-center gap-2 py-1.5">
+                    {% if ssh_enabled %}
+                    <span class="text-mcc-success text-sm">&#10003;</span>
+                    {% else %}
+                    <span class="text-mcc-warning text-sm">&#10007;</span>
+                    {% endif %}
+                    <span class="text-xs">SSH remote login</span>
+                </div>
+
+                <!-- Telegram -->
+                <div class="flex items-center gap-2 py-1.5">
+                    {% if telegram_configured %}
+                    <span class="text-mcc-success text-sm">&#10003;</span>
+                    {% else %}
+                    <span class="text-mcc-warning text-sm">&#10007;</span>
+                    {% endif %}
+                    <span class="text-xs">Telegram alerts configured</span>
+                </div>
+
+                <!-- Healthchecks -->
+                <div class="flex items-center gap-2 py-1.5">
+                    {% if healthchecks_configured %}
+                    <span class="text-mcc-success text-sm">&#10003;</span>
+                    {% else %}
+                    <span class="text-mcc-warning text-sm">&#10007;</span>
+                    {% endif %}
+                    <span class="text-xs">Healthchecks.io configured</span>
+                </div>
+
+                <!-- Git Backup -->
+                <div class="flex items-center gap-2 py-1.5">
+                    {% if last_commit_hours is not none and last_commit_hours < 26 %}
+                    <span class="text-mcc-success text-sm">&#10003;</span>
+                    <span class="text-xs">Git backup ({{ last_commit_hours }}h ago)</span>
+                    {% elif last_commit_hours is not none %}
+                    <span class="text-mcc-warning text-sm">&#10007;</span>
+                    <span class="text-xs">Git backup stale ({{ last_commit_hours }}h ago)</span>
+                    {% else %}
+                    <span class="text-mcc-critical text-sm">&#10007;</span>
+                    <span class="text-xs">No git commits found</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Full Test Results -->
+        <div class="bg-mcc-card border border-mcc-border rounded-card p-5">
+            <h3 class="text-sm font-semibold mb-4">System Test Results</h3>
+            <div id="full-test-results" class="text-xs text-mcc-muted">
+                Click "Run Full System Test" to check all systems.
+            </div>
+        </div>
+    </div>
+
+    <!-- Disaster Recovery: Hosting Breakdown -->
+    <div class="bg-mcc-card border border-mcc-border rounded-card p-5">
+        <h3 class="text-sm font-semibold mb-1">Disaster Recovery — Hosting Breakdown</h3>
+        <p class="text-xs text-mcc-muted mb-4">If the Mac Mini goes down, cloud-hosted automations keep running.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Mac Mini -->
+            <div>
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="w-2 h-2 rounded-full bg-mcc-accent"></span>
+                    <span class="text-xs font-semibold">Mac Mini ({{ mac_mini_autos|length }})</span>
+                </div>
+                {% if mac_mini_autos %}
+                <div class="space-y-1.5">
+                    {% for a in mac_mini_autos %}
+                    <div class="flex items-center justify-between text-xs py-1 px-2 rounded bg-mcc-bg/50">
+                        <span>{{ a.name }}</span>
+                        {% if a.health.value == 'running' %}
+                        <span class="text-mcc-success text-[10px]">running</span>
+                        {% elif a.health.value == 'stale' %}
+                        <span class="text-mcc-warning text-[10px]">stale</span>
+                        {% elif a.health.value == 'failed' %}
+                        <span class="text-mcc-critical text-[10px]">failed</span>
+                        {% else %}
+                        <span class="text-mcc-muted text-[10px]">{{ a.health.value }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-xs text-mcc-muted">No Mac Mini automations.</p>
+                {% endif %}
+                <p class="text-[10px] text-mcc-critical/80 mt-2">These STOP if Mac Mini is offline.</p>
+            </div>
+
+            <!-- Cloud -->
+            <div>
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="w-2 h-2 rounded-full bg-mcc-success"></span>
+                    <span class="text-xs font-semibold">Cloud / Hybrid ({{ cloud_autos|length }})</span>
+                </div>
+                {% if cloud_autos %}
+                <div class="space-y-1.5">
+                    {% for a in cloud_autos %}
+                    <div class="flex items-center justify-between text-xs py-1 px-2 rounded bg-mcc-bg/50">
+                        <span>{{ a.name }}</span>
+                        {% if a.health.value == 'running' %}
+                        <span class="text-mcc-success text-[10px]">running</span>
+                        {% elif a.health.value == 'stale' %}
+                        <span class="text-mcc-warning text-[10px]">stale</span>
+                        {% elif a.health.value == 'failed' %}
+                        <span class="text-mcc-critical text-[10px]">failed</span>
+                        {% else %}
+                        <span class="text-mcc-muted text-[10px]">{{ a.health.value }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-xs text-mcc-muted">No cloud automations.</p>
+                {% endif %}
+                <p class="text-[10px] text-mcc-success/80 mt-2">These SURVIVE Mac Mini outage.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connected Tools Health -->
+    {% if tools %}
+    <div class="bg-mcc-card border border-mcc-border rounded-card p-5">
+        <h3 class="text-sm font-semibold mb-3">Connected Tools</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {% for t in tools %}
+            <a href="/tools/{{ t.id }}" class="flex items-center gap-3 p-3 rounded-lg bg-mcc-bg/50 hover:bg-mcc-card-hover transition-colors">
+                {% if t.health.value == 'online' %}
+                <span class="w-2 h-2 rounded-full bg-mcc-success flex-shrink-0"></span>
+                {% elif t.health.value == 'degraded' %}
+                <span class="w-2 h-2 rounded-full bg-mcc-warning flex-shrink-0"></span>
+                {% else %}
+                <span class="w-2 h-2 rounded-full bg-mcc-critical flex-shrink-0"></span>
+                {% endif %}
+                <div>
+                    <div class="text-xs font-medium">{{ t.name }}</div>
+                    <div class="text-[10px] text-mcc-muted">{{ t.health.value }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Setup Reference -->
+    <div class="bg-mcc-card border border-mcc-border rounded-card p-5">
+        <h3 class="text-sm font-semibold mb-3">Setup Reference</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-mcc-muted">
+            <div>
+                <h4 class="text-mcc-text font-medium mb-2">Cron Jobs</h4>
+                <pre class="bg-mcc-bg rounded-lg p-3 font-mono text-[11px] overflow-x-auto">*/30 * * * * ~/marketing-command-center/scripts/heartbeat_ping.sh
+0 3 * * * ~/marketing-command-center/scripts/daily_backup.sh</pre>
+            </div>
+            <div>
+                <h4 class="text-mcc-text font-medium mb-2">Energy Saver (System Settings)</h4>
+                <ul class="space-y-1">
+                    <li>- Prevent automatic sleeping when display is off: <span class="text-mcc-accent">ON</span></li>
+                    <li>- Wake for network access: <span class="text-mcc-accent">ON</span></li>
+                    <li>- Start up automatically after power failure: <span class="text-mcc-accent">ON</span></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="text-mcc-text font-medium mb-2">.env Variables</h4>
+                <pre class="bg-mcc-bg rounded-lg p-3 font-mono text-[11px] overflow-x-auto">TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+HEALTHCHECKS_PING_URL=https://hc-ping.com/your-uuid</pre>
+            </div>
+            <div>
+                <h4 class="text-mcc-text font-medium mb-2">SSH Access</h4>
+                <pre class="bg-mcc-bg rounded-lg p-3 font-mono text-[11px] overflow-x-auto">sudo systemsetup -setremotelogin on
+# Then connect: ssh phil@your-ip</pre>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

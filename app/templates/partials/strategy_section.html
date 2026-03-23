@@ -1,0 +1,15 @@
+<!-- Strategy Section Editor -->
+<div class="mt-4 border-t border-mcc-border pt-4">
+    <form hx-post="/strategy/section/{{ section.value }}/save"
+          hx-swap="innerHTML" hx-target="this">
+        <textarea name="content" rows="10"
+                  class="mcc-input w-full text-xs font-mono"
+                  placeholder="Write your {{ meta.label|lower }} strategy here... (Markdown supported)">{{ strategy.content if strategy else '' }}</textarea>
+        <div class="flex items-center justify-between mt-3">
+            <span class="text-[10px] text-mcc-muted">Markdown supported. Last updated: {{ strategy.updated_at.strftime('%b %d, %Y') if strategy and strategy.updated_at else 'Never' }}</span>
+            <button type="submit" class="px-4 py-1.5 rounded text-xs bg-mcc-accent text-white hover:bg-mcc-accent/80 transition-colors">
+                Save
+            </button>
+        </div>
+    </form>
+</div>

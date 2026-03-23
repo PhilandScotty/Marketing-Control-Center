@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}{{ tmpl.name }}{% endblock %}
+{% block page_title %}{{ tmpl.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl">
+    <!-- Back + Actions -->
+    <div class="flex items-center justify-between mb-6">
+        <a href="/templates" class="text-xs text-mcc-accent hover:underline">&larr; All Templates</a>
+        <div class="flex items-center gap-2">
+            <!-- Apply to Project -->
+            <button onclick="document.getElementById('apply-modal').classList.remove('hidden')"
+                    class="px-3 py-1.5 bg-mcc-accent text-white rounded-lg text-sm font-medium hover:bg-mcc-accent/80">
+                Apply to Project
+            </button>
+            <form hx-post="/templates/{{ tmpl.id }}/delete" hx-swap="innerHTML" hx-target="body"
+                  onsubmit="return confirm('Delete this template?')">
+                <button type="submit" class="px-3 py-1.5 bg-mcc-critical/10 text-mcc-critical rounded-lg text-sm hover:bg-mcc-critical/20">
+                    Delete
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Description -->
+    {% if tmpl.description %}
+    <div class="bg-mcc-card rounded-xl border border-mcc-border p-4 mb-6">
+        <p class="text-sm text-mcc-text/80">{{ tmpl.description }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Task Timeline -->
+    <div class="mb-4 flex items-center justify-between">
+        <h3 class="text-sm font-semibold">Template Tasks ({{ tasks|length }})</h3>
+        <button onclick="document.getElementById('add-task-form').classList.toggle('hidden')"
+                class="px-3 py-1.5 bg-mcc-border text-mcc-text rounded-lg text-xs hover:bg-mcc-border/80">+ Add Task</button>
+    </div>
+
+    <!-- Add task form -->
+    <div id="add-task-form" class="hidden bg-mcc-card rounded-xl border border-mcc-border p-4 mb-4">
+        <form hx-post="/templates/{{ tmpl.id }}/add-task" hx-swap="innerHTML" hx-target="body">
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="col-span-2">
+                    <label class="text-xs text-mcc-muted block mb-1">Title</label>
+                    <input type="text" name="title" class="mcc-input w-full" required>
+                </div>
+                <div class="col-span-2">
+                    <label class="text-xs text-mcc-muted block mb-1">Description</label>
+                    <textarea name="description" class="mcc-input w-full h-16 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Relative Day (from launch)</label>
+                    <input type="number" name="relative_day" class="mcc-input w-full" value="0" placeholder="-14 = two weeks before">
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Priority</label>
+                    <select name="priority" class="mcc-select w-full">
+                        {% for val, label in priorities %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Assigned Role</label>
+                    <select name="assigned_role" class="mcc-select w-full">
+                        <option value="founder">Founder</option>
+                        <option value="developer">Developer</option>
+                        <option value="editor">Editor</option>
+                        <option value="marketer">Marketer</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="document.getElementById('add-task-form').classList.add('hidden')"
+                        class="px-3 py-1.5 text-sm text-mcc-muted border border-mcc-border rounded-lg">Cancel</button>
+                <button type="submit" class="px-3 py-1.5 bg-mcc-accent text-white rounded-lg text-sm">Add</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tasks grouped by phase -->
+    {% set phases = {} %}
+    {% for t in tasks %}
+        {% if t.relative_day < -14 %}{% set phase = "Pre-Launch (T-30 to T-14)" %}
+        {% elif t.relative_day < 0 %}{% set phase = "Launch Sprint (T-14 to T-1)" %}
+        {% elif t.relative_day == 0 %}{% set phase = "Launch Day" %}
+        {% else %}{% set phase = "Post-Launch (T+1 onward)" %}
+        {% endif %}
+        {% if phases.update({phase: (phases.get(phase, []) + [t])}) %}{% endif %}
+    {% endfor %}
+
+    <div class="space-y-6">
+        {% for phase_name in ["Pre-Launch (T-30 to T-14)", "Launch Sprint (T-14 to T-1)", "Launch Day", "Post-Launch (T+1 onward)"] %}
+        {% set phase_tasks = [] %}
+        {% for t in tasks %}
+            {% if phase_name == "Pre-Launch (T-30 to T-14)" and t.relative_day < -14 %}
+                {% if phase_tasks.append(t) %}{% endif %}
+            {% elif phase_name == "Launch Sprint (T-14 to T-1)" and t.relative_day >= -14 and t.relative_day < 0 %}
+                {% if phase_tasks.append(t) %}{% endif %}
+            {% elif phase_name == "Launch Day" and t.relative_day == 0 %}
+                {% if phase_tasks.append(t) %}{% endif %}
+            {% elif phase_name == "Post-Launch (T+1 onward)" and t.relative_day > 0 %}
+                {% if phase_tasks.append(t) %}{% endif %}
+            {% endif %}
+        {% endfor %}
+        {% if phase_tasks %}
+        <div>
+            <h4 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider mb-2">{{ phase_name }}</h4>
+            <div class="space-y-2">
+                {% for t in phase_tasks %}
+                <div class="bg-mcc-card rounded-lg border border-mcc-border p-3 flex items-start justify-between group">
+                    <div class="flex items-start gap-3 flex-1">
+                        <span class="text-xs font-mono text-mcc-dim mt-0.5 w-10 text-right flex-shrink-0">
+                            {% if t.relative_day > 0 %}+{% endif %}{{ t.relative_day }}d
+                        </span>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full
+                                    {% if t.priority.value == 'launch_critical' %}bg-mcc-critical
+                                    {% elif t.priority.value == 'high' %}bg-mcc-warning
+                                    {% elif t.priority.value == 'medium' %}bg-mcc-secondary
+                                    {% else %}bg-mcc-muted{% endif %}"></span>
+                                <span class="text-xs font-medium">{{ t.title }}</span>
+                            </div>
+                            {% if t.description %}
+                            <p class="text-[10px] text-mcc-muted mt-0.5 ml-4">{{ t.description[:100] }}{% if t.description|length > 100 %}...{% endif %}</p>
+                            {% endif %}
+                            <div class="flex items-center gap-2 mt-1 ml-4">
+                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-mcc-bg text-mcc-muted capitalize">{{ t.assigned_role }}</span>
+                                {% if t.checklist_items and t.checklist_items|length > 0 %}
+                                <span class="text-[10px] text-mcc-dim">{{ t.checklist_items|length }} subtasks</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <form hx-post="/templates/{{ tmpl.id }}/delete-task/{{ t.id }}" hx-swap="innerHTML" hx-target="body"
+                          class="hidden group-hover:block">
+                        <button type="submit" class="text-mcc-muted hover:text-mcc-critical text-xs px-2">&times;</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Apply Template Modal -->
+<div id="apply-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-md p-6 shadow-2xl" onclick="event.stopPropagation()">
+        <h3 class="text-sm font-semibold mb-4">Apply Template to Project</h3>
+        <form hx-post="/templates/apply/{{ tmpl.id }}" hx-swap="innerHTML" hx-target="body">
+            <div class="space-y-3">
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Project</label>
+                    <select name="project_slug" class="mcc-select w-full">
+                        {% if project %}
+                        <option value="{{ project.slug }}">{{ project.name }}</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-mcc-muted block mb-1">Launch Date (tasks are scheduled relative to this)</label>
+                    <input type="date" name="launch_date" class="mcc-input w-full" value="{{ project.launch_date.isoformat() if project and project.launch_date else '' }}">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-5 pt-4 border-t border-mcc-border">
+                <button type="button" onclick="document.getElementById('apply-modal').classList.add('hidden')"
+                        class="px-4 py-2 text-sm text-mcc-muted border border-mcc-border rounded-lg">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-mcc-accent text-white rounded-lg text-sm font-medium">Apply {{ tasks|length }} Tasks</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Launch Templates{% endblock %}
+{% block page_title %}Launch Templates{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl">
+    <div class="flex items-center justify-between mb-6">
+        <p class="text-sm text-mcc-muted">Reusable task templates for product launches. Save your proven workflow and apply it to new projects.</p>
+    </div>
+
+    {% if templates %}
+    <div class="grid gap-4">
+        {% for item in templates %}
+        {% set t = item.template %}
+        <a href="/templates/{{ t.id }}" class="block bg-mcc-card rounded-xl border border-mcc-border p-5 hover:border-mcc-accent/40 transition-all group">
+            <div class="flex items-start justify-between">
+                <div>
+                    <h3 class="text-sm font-semibold group-hover:text-mcc-accent transition-colors">{{ t.name }}</h3>
+                    {% if t.description %}
+                    <p class="text-xs text-mcc-muted mt-1">{{ t.description }}</p>
+                    {% endif %}
+                </div>
+                <div class="text-right">
+                    <span class="text-lg font-bold text-mcc-accent">{{ item.task_count }}</span>
+                    <span class="text-[10px] text-mcc-muted block">tasks</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 mt-3 text-[10px] text-mcc-muted">
+                <span>Created {{ t.created_at.strftime('%b %d, %Y') }}</span>
+                {% if t.created_from_project_id %}
+                <span class="px-1.5 py-0.5 bg-mcc-bg rounded">From project</span>
+                {% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-16">
+        <p class="text-mcc-muted mb-2">No templates yet</p>
+        <p class="text-xs text-mcc-dim">Go to Tasks and click "Save as Template" to create one from your current project.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Retention{% endblock %}
+{% block page_title %}Retention & Engagement{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    {% if not project %}
+    <div class="text-center py-12 text-mcc-muted">No project loaded</div>
+    {% else %}
+
+    <!-- Segment Distribution -->
+    <div class="grid grid-cols-5 gap-3">
+        {% for key, seg in segments.items() %}
+        <div class="bg-mcc-card border border-mcc-border rounded-lg p-4 text-center">
+            <div class="w-3 h-3 rounded-full mx-auto mb-2" style="background: {{ seg.color }}"></div>
+            <div class="text-lg font-bold">{{ seg.count }}</div>
+            <div class="text-[10px] text-mcc-muted">{{ seg.label }}</div>
+            <div class="text-[10px] text-mcc-muted mt-1">{{ seg.pct }}%</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="grid grid-cols-3 gap-6">
+        <!-- Funnel Stage Data -->
+        <div class="col-span-2 space-y-4">
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-5">
+                <h3 class="font-semibold text-sm mb-4">Subscriber Stages</h3>
+                {% if stage_data %}
+                <div class="space-y-3">
+                    {% for stage in stage_data %}
+                    <div class="flex items-center gap-3">
+                        <div class="w-36 text-xs text-mcc-muted">{{ stage.stage|replace('_', ' ')|title }}</div>
+                        <div class="flex-1">
+                            <div class="h-6 bg-mcc-bg rounded overflow-hidden">
+                                {% set max_count = stage_data|map(attribute='count')|max %}
+                                <div class="h-full bg-mcc-accent/40 rounded flex items-center px-2"
+                                     style="width: {{ (stage.count / max_count * 100)|int if max_count else 0 }}%">
+                                    <span class="text-[10px] text-mcc-text font-mono">{{ stage.count }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="w-20 text-right text-xs text-mcc-muted font-mono">
+                            {% if stage.mrr %}${{ "%.0f"|format(stage.mrr) }} MRR{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-xs text-mcc-muted text-center py-4">No subscriber data yet</div>
+                {% endif %}
+            </div>
+
+            <!-- Trend Chart -->
+            {% if trend_dates %}
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-5">
+                <h3 class="font-semibold text-sm mb-4">8-Week Trend</h3>
+                <canvas id="retention-trend-chart" height="200"></canvas>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-4">
+            <!-- Churn Stats -->
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-4">
+                <h3 class="font-semibold text-sm mb-3">Churn (30 days)</h3>
+                <div class="text-2xl font-bold {% if recent_churns > 0 %}text-mcc-critical{% else %}text-mcc-success{% endif %}">
+                    {{ recent_churns }}
+                </div>
+                <div class="text-[10px] text-mcc-muted">subscribers churned</div>
+            </div>
+
+            <!-- Segment Definitions -->
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-4">
+                <h3 class="font-semibold text-sm mb-3">Segments</h3>
+                <div class="space-y-2">
+                    {% for key, rule in segment_rules.items() %}
+                    <div class="flex items-start gap-2">
+                        <div class="w-2 h-2 rounded-full mt-1 flex-shrink-0" style="background: {{ rule.color }}"></div>
+                        <div>
+                            <div class="text-xs font-medium">{{ rule.label }}</div>
+                            <div class="text-[10px] text-mcc-muted">{{ rule.description }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Recent Churn Events -->
+            {% if churn_events %}
+            <div class="bg-mcc-card border border-mcc-border rounded-lg p-4">
+                <h3 class="font-semibold text-sm mb-3">Recent Churns</h3>
+                <div class="space-y-2">
+                    {% for e in churn_events[:10] %}
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-mcc-muted font-mono">{{ e.email_hash[:8] }}...</span>
+                        <span class="text-mcc-muted">{{ e.occurred_at.strftime('%b %d') }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+
+{% if trend_dates %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var ctx = document.getElementById('retention-trend-chart');
+    if (!ctx) return;
+    var dates = {{ trend_dates|tojson }};
+    var byStage = {{ trend_by_stage|tojson }};
+    var datasets = [];
+    var colors = {
+        'waitlist_lead': '#8B8B9E',
+        'free_trial_active': '#164E63',
+        'paid_basic': '#00C853',
+        'paid_premium': '#06B6D4',
+        'churned': '#FF1744',
+    };
+    for (var stage in byStage) {
+        var data = dates.map(function(d) { return byStage[stage][d] || 0; });
+        datasets.push({
+            label: stage.replace(/_/g, ' '),
+            data: data,
+            borderColor: colors[stage] || '#4A4A5E',
+            backgroundColor: 'transparent',
+            tension: 0.3,
+            pointRadius: 2,
+        });
+    }
+    new Chart(ctx, {
+        type: 'line',
+        data: { labels: dates, datasets: datasets },
+        options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: '#8B8B9E', font: { size: 10 } } } },
+            scales: {
+                x: { ticks: { color: '#8B8B9E', font: { size: 9 } }, grid: { color: '#2A2A3E' } },
+                y: { ticks: { color: '#8B8B9E', font: { size: 9 } }, grid: { color: '#2A2A3E' } },
+            },
+        },
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

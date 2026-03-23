@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block title %}Tech Stack{% endblock %}
+{% block page_title %}Tech Stack{% endblock %}
+
+{% block content %}
+{% if not project %}
+<div class="text-center py-16 text-mcc-muted">No project loaded.</div>
+{% else %}
+
+<!-- Summary -->
+<div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold">{{ active_count }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Active Tools</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold font-mono">${{ "%.0f"|format(monthly_total) }}</div>
+        <div class="text-[10px] text-mcc-muted uppercase">Monthly Cost</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold {% if gap_categories %}text-mcc-warning{% else %}text-mcc-success{% endif %}">
+            {{ gap_categories|length }}
+        </div>
+        <div class="text-[10px] text-mcc-muted uppercase">Category Gaps</div>
+    </div>
+    <div class="bg-mcc-card rounded-lg border border-mcc-border p-4 text-center">
+        <div class="text-2xl font-bold {% if redundant_categories %}text-mcc-warning{% else %}text-mcc-muted{% endif %}">
+            {{ redundant_categories|length }}
+        </div>
+        <div class="text-[10px] text-mcc-muted uppercase">Redundancies</div>
+    </div>
+</div>
+
+<!-- Header with Add button -->
+<div class="flex items-center justify-between mb-4">
+    <div class="text-sm text-mcc-muted">{{ total_count }} tools across {{ by_category|length }} categories</div>
+    <button onclick="document.getElementById('add-tool-modal').classList.remove('hidden')"
+            class="px-3 py-1.5 bg-mcc-accent text-white rounded-lg text-xs font-medium hover:bg-mcc-accent/80 transition-colors">
+        + Add Tool
+    </button>
+</div>
+
+<div class="grid grid-cols-12 gap-6">
+    <!-- Main: Tools by Category -->
+    <div class="col-span-8 space-y-4">
+        {% for cat, tools in by_category.items() %}
+        <div class="bg-mcc-card rounded-lg border border-mcc-border overflow-hidden">
+            <div class="px-4 py-3 border-b border-mcc-border flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-semibold">{{ category_labels.get(cat, cat) }}</h3>
+                    <span class="text-[10px] text-mcc-muted font-mono">{{ tools|length }} tool{{ 's' if tools|length != 1 }}</span>
+                </div>
+                {% set cat_cost = tools|selectattr('status', 'equalto', 'active')|map(attribute='monthly_cost')|map('float')|sum %}
+                <span class="text-xs font-mono text-mcc-muted">${{ "%.0f"|format(cat_cost) }}/mo</span>
+            </div>
+            <div class="divide-y divide-mcc-border/30">
+                {% for tool in tools %}
+                <div class="px-4 py-3 flex items-center justify-between hover:bg-mcc-bg/30 group cursor-pointer"
+                     onclick="openTechEditModal({{ tool.id }})">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <span class="text-xs font-medium">{{ tool.name }}</span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded
+                                {% if tool.status.value == 'active' %}bg-mcc-success/15 text-mcc-success
+                                {% elif tool.status.value == 'evaluating' %}bg-mcc-warning/15 text-mcc-warning
+                                {% elif tool.status.value == 'deprecated' %}bg-mcc-critical/15 text-mcc-critical
+                                {% elif tool.status.value == 'blocked' %}bg-mcc-critical/15 text-mcc-critical
+                                {% else %}bg-mcc-bg text-mcc-muted{% endif %}">
+                                {{ tool.status.value|capitalize }}
+                            </span>
+                            {% if tool.api_integrated %}
+                            <span class="text-[9px] px-1 py-0.5 rounded bg-mcc-accent/10 text-mcc-accent">API</span>
+                            {% endif %}
+                            {% if tool.id in budget_links %}
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-mcc-accent/10 text-mcc-accent flex items-center gap-1">
+                                &#x1F4CA; In Budget
+                            </span>
+                            {% endif %}
+                            {% if tool.gap_flag %}
+                            <span class="text-[9px] px-1 py-0.5 rounded bg-mcc-warning/15 text-mcc-warning">Gap</span>
+                            {% endif %}
+                            {% if tool.redundancy_flag %}
+                            <span class="text-[9px] px-1 py-0.5 rounded bg-mcc-warning/15 text-mcc-warning">Redundant</span>
+                            {% endif %}
+                        </div>
+                        <div class="text-[10px] text-mcc-muted">{{ tool.purpose }}</div>
+                        {% if tool.blocker %}
+                        <div class="text-[10px] text-mcc-critical mt-0.5">Blocker: {{ tool.blocker }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="text-right flex items-center gap-3">
+                        <div>
+                            <div class="text-xs font-mono">${{ "%.0f"|format(tool.monthly_cost|float) }}/mo</div>
+                            <div class="text-[10px] text-mcc-muted">{{ tool.billing_cycle.value }}</div>
+                            {% if tool.last_reviewed %}
+                            {% set days_since = (today - tool.last_reviewed).days %}
+                            <div class="text-[9px] {% if days_since > 60 %}text-mcc-warning{% else %}text-mcc-muted{% endif %}">
+                                Reviewed {{ days_since }}d ago
+                            </div>
+                            {% endif %}
+                        </div>
+                        <svg class="w-4 h-4 text-mcc-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                        </svg>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Sidebar: Alerts -->
+    <div class="col-span-4 space-y-4">
+        <!-- Review Reminders -->
+        {% if needs_review %}
+        <div class="bg-mcc-warning/5 border border-mcc-warning/30 rounded-lg p-4">
+            <h3 class="text-sm font-semibold text-mcc-warning mb-3">Needs Review (60+ days)</h3>
+            <div class="space-y-2">
+                {% for tool in needs_review %}
+                <div class="flex items-center justify-between text-xs">
+                    <span>{{ tool.name }}</span>
+                    <span class="text-mcc-muted font-mono">{{ (today - tool.last_reviewed).days }}d ago</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Gap Flags -->
+        {% if gap_categories %}
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3">Category Gaps</h3>
+            <p class="text-[10px] text-mcc-muted mb-2">Categories with no active tool:</p>
+            <div class="space-y-1">
+                {% for cat in gap_categories %}
+                <div class="text-xs text-mcc-warning flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-mcc-warning"></span>
+                    {{ category_labels.get(cat, cat) }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Redundancies -->
+        {% if redundant_categories %}
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3">Redundancies</h3>
+            <div class="space-y-3">
+                {% for r in redundant_categories %}
+                <div>
+                    <div class="text-xs text-mcc-warning mb-1">{{ category_labels.get(r['category'], r['category']) }} ({{ r['count'] }} active)</div>
+                    {% for tool in r['tools'] %}
+                    <div class="text-[10px] text-mcc-muted pl-3">{{ tool.name }} — ${{ "%.0f"|format(tool.monthly_cost|float) }}/mo</div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Evaluating -->
+        {% if evaluating %}
+        <div class="bg-mcc-card rounded-lg border border-mcc-border p-4">
+            <h3 class="text-sm font-semibold mb-3">Under Evaluation</h3>
+            <div class="space-y-2">
+                {% for tool in evaluating %}
+                <div class="bg-mcc-bg rounded p-2">
+                    <div class="text-xs font-medium">{{ tool.name }}</div>
+                    <div class="text-[10px] text-mcc-muted">{{ tool.purpose }}</div>
+                    {% if tool.alternative_to %}
+                    <div class="text-[10px] text-mcc-accent mt-0.5">Alternative to #{{ tool.alternative_to }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Tool Modal -->
+<div id="add-tool-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-md p-6 shadow-2xl" onclick="event.stopPropagation()">
+        <h3 class="text-sm font-semibold mb-4">Add Tool to Stack</h3>
+        <form hx-post="/techstack/add" hx-swap="innerHTML" hx-target="body">
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[10px] text-mcc-muted block mb-1">Tool Name *</label>
+                    <input type="text" name="name" required placeholder="e.g. Stripe, Vercel, Claude"
+                           class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text outline-none focus:border-mcc-accent">
+                </div>
+                <div>
+                    <label class="text-[10px] text-mcc-muted block mb-1">Purpose</label>
+                    <input type="text" name="purpose" placeholder="What does this tool do?"
+                           class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text outline-none focus:border-mcc-accent">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[10px] text-mcc-muted block mb-1">Category</label>
+                        <select name="category" class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text">
+                            {% for val, label in categories %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted block mb-1">Status</label>
+                        <select name="status" class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text">
+                            {% for val, label in statuses %}
+                            <option value="{{ val }}" {% if val == 'active' %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[10px] text-mcc-muted block mb-1">Monthly Cost ($)</label>
+                        <input type="number" step="1" name="monthly_cost" value="0"
+                               class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs font-mono text-mcc-text outline-none focus:border-mcc-accent">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-mcc-muted block mb-1">Billing Cycle</label>
+                        <select name="billing_cycle" class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text">
+                            {% for val, label in billing_cycles %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="p-2.5 rounded-lg bg-mcc-bg border border-mcc-border/50">
+                    <div class="text-[10px] text-mcc-muted">
+                        &#x1F4CA; Tools with a monthly cost > $0 will automatically create a recurring budget entry in the Budget tracker.
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-5 pt-4 border-t border-mcc-border">
+                <button type="button" onclick="document.getElementById('add-tool-modal').classList.add('hidden')"
+                        class="px-4 py-2 text-xs text-mcc-muted hover:text-mcc-text border border-mcc-border rounded-lg">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-mcc-accent text-white rounded-lg text-xs font-medium hover:bg-mcc-accent/80">Add Tool</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Tool Modal -->
+<div id="tech-edit-modal-backdrop" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center" onclick="if(event.target===this)closeTechEditModal()">
+    <div id="tech-edit-modal-content" class="bg-mcc-card rounded-xl border border-mcc-border w-full max-w-md p-6 shadow-2xl" onclick="event.stopPropagation()">
+    </div>
+</div>
+
+<script>
+function openTechEditModal(toolId) {
+    var modal = document.getElementById('tech-edit-modal-backdrop');
+    var content = document.getElementById('tech-edit-modal-content');
+    modal.classList.remove('hidden');
+    fetch('/techstack/' + toolId + '/edit')
+        .then(function(r) { return r.text(); })
+        .then(function(html) { content.innerHTML = html; htmx.process(content); });
+}
+function closeTechEditModal() {
+    document.getElementById('tech-edit-modal-backdrop').classList.add('hidden');
+    document.getElementById('tech-edit-modal-content').innerHTML = '';
+}
+</script>
+
+{% endif %}
+{% endblock %}
