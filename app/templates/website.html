@@ -214,6 +214,9 @@
     </div>
 </div>
 
+{% include "partials/utm_builder.html" %}
+{% include "partials/utm_sop_panel.html" %}
+
 {% if not ga4_connected %}
 <!-- ═══════════════════════ GA4 NOT CONNECTED ═══════════════════════ -->
 <div class="mcc-card p-6">
@@ -462,7 +465,6 @@
 </div>
 {% endif %}
 
-<!-- ─── SECTION 4: UTM TRACKING DASHBOARD ─── -->
 {% if utms %}
 <div>
     <h2 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider mb-3">UTM Tracking <span class="font-normal">(30d)</span></h2>
@@ -767,4 +769,369 @@
 </div>
 
 </div>
+<script>
+window.MCCUtmBuilder = (() => {
+    const requiredIdMedia = new Set(["cpc", "paid_social", "paid_video", "cold_email", "partner", "affiliate"]);
+    const currentPeriod = "{{ current_period }}";
+    const contextPresets = {
+        {% for key, preset in context_presets.items() %}
+        "{{ key }}": {
+            utm_source: "{{ preset['utm_source'] }}",
+            utm_medium: "{{ preset['utm_medium'] }}",
+            asset_type: "{{ preset['asset_type'] }}",
+            placement: "{{ preset['placement'] }}"
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+
+    const slugify = (value) => (value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/_/g, "-")
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/-{2,}/g, "-")
+        .replace(/^-|-$/g, "");
+
+    const buildUrl = (baseUrl, params) => {
+        try {
+            const url = new URL(baseUrl);
+            Object.entries(params).forEach(([key, value]) => {
+                if (value) {
+                    url.searchParams.set(key, value);
+                } else {
+                    url.searchParams.delete(key);
+                }
+            });
+            return url.toString();
+        } catch (error) {
+            return "";
+        }
+    };
+
+    const buildCampaignSlug = (objective, offer, audience, theme) => {
+        return [
+            slugify(objective),
+            slugify(offer),
+            slugify(audience),
+            slugify(theme),
+            slugify(currentPeriod),
+        ].filter(Boolean).join("-");
+    };
+
+    const buildContentName = (assetType, placement, variant) => {
+        return [
+            slugify(assetType),
+            slugify(placement),
+            slugify(variant || "v1"),
+        ].filter(Boolean).join("-");
+    };
+
+    const getElements = () => ({
+        coreForm: document.getElementById("campaign-core-form"),
+        coreObjective: document.getElementById("core-objective"),
+        coreOffer: document.getElementById("core-offer"),
+        coreAudience: document.getElementById("core-audience"),
+        coreTheme: document.getElementById("core-theme"),
+        corePeriodPreview: document.getElementById("core-period-preview"),
+        coreSlugPreview: document.getElementById("core-slug-preview"),
+        selectedCoreDisplay: document.getElementById("selected-core-display"),
+        campaignCoreLibrary: document.getElementById("campaign-core-library"),
+        baseUrl: document.getElementById("utm-base-url"),
+        owner: document.getElementById("utm-owner"),
+        channel: document.getElementById("utm-channel"),
+        source: document.getElementById("utm-source"),
+        medium: document.getElementById("utm-medium"),
+        assetType: document.getElementById("utm-asset-type"),
+        placement: document.getElementById("utm-placement"),
+        variant: document.getElementById("utm-variant"),
+        term: document.getElementById("utm-term"),
+        utmId: document.getElementById("utm-id"),
+        qaStatus: document.getElementById("utm-qa-status"),
+        qaApprovedBy: document.getElementById("utm-qa-approved-by"),
+        notes: document.getElementById("utm-notes"),
+        campaignPreview: document.getElementById("utm-campaign-preview"),
+        contentPreview: document.getElementById("utm-content-preview"),
+        finalUrlPreview: document.getElementById("utm-final-url-preview"),
+        warnings: document.getElementById("utm-builder-warnings"),
+        copyButton: document.getElementById("utm-copy-button"),
+        idRule: document.getElementById("utm-id-rule"),
+        saveForm: document.getElementById("utm-save-form"),
+    });
+
+    const getSelectedCore = () => {
+        const selected = document.querySelector(".campaign-core-radio:checked");
+        if (!selected) {
+            return null;
+        }
+        return {
+            id: selected.dataset.coreId,
+            slug: selected.dataset.coreSlug,
+            period: selected.dataset.corePeriod,
+            display: selected.dataset.coreDisplay,
+        };
+    };
+
+    const syncCoreSelectionStyles = () => {
+        document.querySelectorAll(".campaign-core-card").forEach((card) => {
+            card.classList.remove("border-mcc-accent", "bg-mcc-accent/10");
+        });
+        document.querySelectorAll(".campaign-core-radio").forEach((radio) => {
+            if (radio.checked) {
+                const card = radio.closest("label")?.querySelector(".campaign-core-card");
+                if (card) {
+                    card.classList.add("border-mcc-accent", "bg-mcc-accent/10");
+                }
+            }
+        });
+    };
+
+    const syncHiddenFields = (elements) => {
+        if (!elements.saveForm) {
+            return;
+        }
+        const selectedCore = getSelectedCore();
+        const setField = (name, value) => {
+            const field = elements.saveForm.querySelector(`[name="${name}"]`);
+            if (field) {
+                field.value = value || "";
+            }
+        };
+        setField("campaign_core_id", selectedCore ? selectedCore.id : "");
+        setField("base_url", elements.baseUrl.value);
+        setField("owner", elements.owner.value);
+        setField("channel", elements.channel.value);
+        setField("utm_source", elements.source.value);
+        setField("utm_medium", elements.medium.value);
+        setField("asset_type", elements.assetType.value);
+        setField("placement", elements.placement.value);
+        setField("variant", elements.variant.value);
+        setField("utm_term", elements.term.value);
+        setField("utm_id", elements.utmId.value);
+        setField("qa_status", elements.qaStatus ? elements.qaStatus.value : "draft");
+        setField("qa_approved_by", elements.qaApprovedBy ? elements.qaApprovedBy.value : "");
+        setField("notes", elements.notes.value);
+    };
+
+    const copyText = async (value) => {
+        if (!value) {
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(value);
+        } catch (error) {
+            console.error("Clipboard copy failed", error);
+        }
+    };
+
+    const applyContextPreset = () => {
+        const elements = getElements();
+        if (!elements.channel) {
+            return;
+        }
+        const preset = contextPresets[elements.channel.value];
+        if (!preset) {
+            return;
+        }
+        elements.source.value = preset.utm_source;
+        elements.medium.value = preset.utm_medium;
+        elements.assetType.value = preset.asset_type;
+        if (!elements.placement.value || ["main-cta", "ad-main", "creator-description", "post-link", "description-main-cta", "cta-primary"].includes(elements.placement.value)) {
+            elements.placement.value = preset.placement;
+        }
+    };
+
+    const updateCorePreview = () => {
+        const elements = getElements();
+        if (!elements.coreSlugPreview) {
+            return;
+        }
+        const preview = buildCampaignSlug(
+            elements.coreObjective?.value,
+            elements.coreOffer?.value,
+            elements.coreAudience?.value,
+            elements.coreTheme?.value,
+        );
+        elements.corePeriodPreview.textContent = currentPeriod;
+        elements.coreSlugPreview.textContent = preview || "Add objective + offer to preview the reusable campaign name.";
+    };
+
+    const updatePreview = () => {
+        const elements = getElements();
+        if (!elements.baseUrl) {
+            return;
+        }
+        const selectedCore = getSelectedCore();
+
+        const campaign = selectedCore ? selectedCore.slug : "";
+        const content = buildContentName(
+            elements.assetType.value,
+            elements.placement.value,
+            elements.variant.value,
+        );
+
+        const suggestedId = [
+            slugify(elements.source.value),
+            slugify(elements.medium.value),
+            slugify(selectedCore ? selectedCore.period : currentPeriod),
+            "{{ today_stamp }}",
+        ].filter(Boolean).join("-");
+
+        if (!elements.utmId.dataset.userEdited || !elements.utmId.value) {
+            elements.utmId.value = suggestedId;
+        }
+
+        const finalUrl = buildUrl(elements.baseUrl.value, {
+            utm_source: elements.source.value,
+            utm_medium: elements.medium.value,
+            utm_campaign: campaign,
+            utm_content: content,
+            utm_term: slugify(elements.term.value),
+            utm_id: slugify(elements.utmId.value),
+        });
+
+        const warnings = [];
+        if (!elements.baseUrl.value) {
+            warnings.push("Add a landing page URL.");
+        } else if (!finalUrl) {
+            warnings.push("Landing page URL must start with http:// or https://.");
+        }
+        if (!selectedCore) {
+            warnings.push("Choose a campaign core from the library or create one first.");
+        }
+        if (!slugify(elements.placement.value)) {
+            warnings.push("Add a placement or hook for utm_content.");
+        }
+        if (requiredIdMedia.has(elements.medium.value) && !slugify(elements.utmId.value)) {
+            warnings.push("utm_id is required for this medium.");
+        }
+
+        elements.selectedCoreDisplay.textContent = selectedCore
+            ? `${selectedCore.display} (${selectedCore.slug})`
+            : "Choose a saved campaign core from the library.";
+        elements.campaignPreview.textContent = campaign || "Choose a campaign core first.";
+        elements.contentPreview.textContent = content || "Waiting for content parts...";
+        elements.finalUrlPreview.textContent = finalUrl || "Generated URL will appear here.";
+        elements.idRule.textContent = requiredIdMedia.has(elements.medium.value)
+            ? "utm_id is required for this medium."
+            : "utm_id is optional for this medium, but the builder still suggests one.";
+
+        if (warnings.length) {
+            elements.warnings.innerHTML = warnings.map((warning) => `<li>${warning}</li>`).join("");
+        } else {
+            elements.warnings.innerHTML = "<li class='text-mcc-success'>Looks good. Copy the URL or save it to the registry.</li>";
+        }
+
+        syncCoreSelectionStyles();
+        syncHiddenFields(elements);
+        elements.copyButton.onclick = () => copyText(finalUrl);
+    };
+
+    const bindCoreRadios = () => {
+        const radios = document.querySelectorAll(".campaign-core-radio");
+        if (radios.length && !document.querySelector(".campaign-core-radio:checked")) {
+            radios[0].checked = true;
+        }
+        radios.forEach((radio) => {
+            radio.addEventListener("change", updatePreview);
+        });
+        syncCoreSelectionStyles();
+    };
+
+    const refreshLibraryBindings = () => {
+        bindCoreRadios();
+        updatePreview();
+    };
+
+    const init = () => {
+        const elements = getElements();
+        const inputs = [
+            elements.baseUrl, elements.owner, elements.channel, elements.source, elements.medium,
+            elements.assetType, elements.placement, elements.variant, elements.term,
+            elements.qaStatus, elements.qaApprovedBy, elements.notes,
+        ];
+        inputs.forEach((input) => {
+            if (input) {
+                input.addEventListener("input", updatePreview);
+                input.addEventListener("change", updatePreview);
+            }
+        });
+        [elements.coreObjective, elements.coreOffer, elements.coreAudience, elements.coreTheme].forEach((input) => {
+            if (input) {
+                input.addEventListener("input", updateCorePreview);
+                input.addEventListener("change", updateCorePreview);
+            }
+        });
+        if (elements.utmId) {
+            elements.utmId.addEventListener("input", () => {
+                elements.utmId.dataset.userEdited = elements.utmId.value ? "true" : "";
+                updatePreview();
+            });
+        }
+        if (elements.channel) {
+            elements.channel.addEventListener("change", () => {
+                applyContextPreset();
+                updatePreview();
+            });
+        }
+        bindCoreRadios();
+        updateCorePreview();
+        applyContextPreset();
+        updatePreview();
+    };
+
+    const resetCoreBuilder = () => {
+        const elements = getElements();
+        if (!elements.coreForm) {
+            return;
+        }
+        if (elements.coreObjective) {
+            elements.coreObjective.value = "acq";
+        }
+        if (elements.coreOffer) {
+            elements.coreOffer.value = "free-tool";
+        }
+        if (elements.coreAudience) {
+            elements.coreAudience.value = "";
+        }
+        if (elements.coreTheme) {
+            elements.coreTheme.value = "";
+        }
+        updateCorePreview();
+    };
+
+    const resetGeneratedState = () => {
+        const elements = getElements();
+        if (!elements.baseUrl) {
+            return;
+        }
+        elements.utmId.dataset.userEdited = "";
+        elements.baseUrl.value = "";
+        elements.channel.value = "newsletter";
+        applyContextPreset();
+        elements.variant.value = "v1";
+        elements.term.value = "";
+        if (elements.qaApprovedBy) {
+            elements.qaApprovedBy.value = "";
+        }
+        elements.notes.value = "";
+        updatePreview();
+    };
+
+    return { init, updatePreview, resetGeneratedState, resetCoreBuilder, refreshLibraryBindings, copyText };
+})();
+
+document.addEventListener("DOMContentLoaded", () => {
+    window.MCCUtmBuilder.init();
+});
+
+document.body.addEventListener("htmx:afterSwap", (event) => {
+    const target = event.detail.target;
+    if (!target) {
+        return;
+    }
+    if (target.id === "campaign-core-library") {
+        window.MCCUtmBuilder.refreshLibraryBindings();
+    }
+});
+</script>
 {% endblock %}

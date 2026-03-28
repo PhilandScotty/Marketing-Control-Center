@@ -525,6 +525,43 @@ class AdCampaign(Base):
     notes = Column(Text, default="")
 
 
+class CampaignCore(Base):
+    __tablename__ = "campaign_cores"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    display_name = Column(String(200), nullable=False)
+    objective = Column(String(100), nullable=False)
+    offer = Column(String(150), nullable=False)
+    audience = Column(String(150), default="")
+    theme = Column(String(150), default="")
+    period = Column(String(50), nullable=False)
+    campaign_slug = Column(String(250), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TrackedLink(Base):
+    __tablename__ = "tracked_links"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    campaign_core_id = Column(Integer, ForeignKey("campaign_cores.id"), nullable=True)
+    owner = Column(String(50), default="phil")
+    channel = Column(String(100), default="")
+    base_url = Column(String(500), nullable=False)
+    final_url = Column(String(1200), nullable=False)
+    utm_source = Column(String(100), nullable=False)
+    utm_medium = Column(String(100), nullable=False)
+    utm_campaign = Column(String(200), nullable=False)
+    utm_content = Column(String(200), nullable=False)
+    utm_term = Column(String(200), default="")
+    utm_id = Column(String(200), default="")
+    placement = Column(String(200), default="")
+    qa_status = Column(String(50), default="draft")
+    qa_approved_by = Column(String(100), default="")
+    notes = Column(Text, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class ContentPiece(Base):
     __tablename__ = "content_pieces"
     id = Column(Integer, primary_key=True)

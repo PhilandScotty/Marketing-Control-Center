@@ -1,6 +1,7 @@
 """Website analytics page — GA4-powered traffic, pages, sources, UTMs, real-time, funnel, heatmap insights, AI intelligence."""
 import json
 import logging
+from pathlib import Path
 from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse
@@ -12,7 +13,7 @@ from app.database import get_db, SessionLocal
 from app.models import (
     Project, Channel, Task, TaskStatus, TaskPriority,
     HeatmapInsight, WebsiteAnalysis, WebsiteRecommendation,
-    BudgetLineItem, BudgetMonthEntry,
+    BudgetLineItem, BudgetMonthEntry, CampaignCore, TrackedLink,
     ChannelStatus, Metric,
 )
 from app.ai.engine import simple_completion, is_configured as ai_configured
@@ -26,8 +27,23 @@ from app.integrations.ga4_analytics import (
     fetch_conversion_funnel,
     fetch_dashboard_widget,
 )
+from app.markdown_utils import render_markdown_lite
+from app.utm_builder import (
+    APPROVED_MEDIA,
+    APPROVED_SOURCES,
+    ASSET_TYPE_OPTIONS,
+    CHANNEL_OPTIONS,
+    CONTEXT_PRESETS,
+    OBJECTIVE_OPTIONS,
+    OWNER_OPTIONS,
+    QA_STATUS_OPTIONS,
+    get_period_slug,
+    normalize_builder_payload,
+    validate_campaign_core_payload,
+)
 
 logger = logging.getLogger("mcc.website")
+UTM_SOP_PATH = Path("docs/grindlab-utm-sop.md")
 
 router = APIRouter(prefix="/website")
 templates = Jinja2Templates(directory="app/templates")
@@ -56,6 +72,48 @@ WEBSITE_ANALYSIS_SYSTEM = """You are a senior growth marketing analyst specializ
 You provide extremely specific, data-driven, actionable recommendations — never vague advice.
 Every recommendation must include: specific action, who does it, estimated time, and expected impact.
 Respond in JSON format only."""
+
+
+def _get_builder_context(today_value: date) -> dict:
+    return {
+        "approved_sources": APPROVED_SOURCES,
+        "approved_media": APPROVED_MEDIA,
+        "owner_options": OWNER_OPTIONS,
+        "qa_status_options": QA_STATUS_OPTIONS,
+        "channel_options": CHANNEL_OPTIONS,
+        "objective_options": OBJECTIVE_OPTIONS,
+        "asset_type_options": ASSET_TYPE_OPTIONS,
+        "context_presets": CONTEXT_PRESETS,
+        "today_stamp": today_value.strftime("%Y%m%d"),
+        "current_period": get_period_slug(today_value),
+    }
+
+
+def _get_tracked_links(db: Session, project_id: int) -> list[TrackedLink]:
+    return db.query(TrackedLink).filter_by(project_id=project_id).order_by(
+        TrackedLink.created_at.desc()
+    ).limit(12).all()
+
+
+def _get_campaign_cores(db: Session, project_id: int) -> list[CampaignCore]:
+    return db.query(CampaignCore).filter_by(project_id=project_id, is_active=True).order_by(
+        CampaignCore.created_at.desc()
+    ).all()
+
+
+def _get_utm_sop_context() -> dict:
+    if not UTM_SOP_PATH.exists():
+        return {
+            "utm_sop_html": render_markdown_lite("## UTM SOP\nThe SOP file has not been added to the repo yet."),
+            "utm_sop_updated_at": None,
+        }
+
+    markdown_text = UTM_SOP_PATH.read_text(encoding="utf-8")
+    updated_at = datetime.fromtimestamp(UTM_SOP_PATH.stat().st_mtime)
+    return {
+        "utm_sop_html": render_markdown_lite(markdown_text),
+        "utm_sop_updated_at": updated_at,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +280,10 @@ CRITICAL: Every recommendation must include specific action, who does it (Phil, 
 @router.get("/", response_class=HTMLResponse)
 async def website_page(request: Request, db: Session = Depends(get_db)):
     project = db.query(Project).filter_by(slug="grindlab").first()
+    tracked_links = _get_tracked_links(db, project.id) if project else []
+    campaign_cores = _get_campaign_cores(db, project.id) if project else []
+    builder_context = _get_builder_context(date.today())
+    sop_context = _get_utm_sop_context()
 
     ga4_connected = is_ga4_configured()
     traffic = None
@@ -287,7 +349,140 @@ async def website_page(request: Request, db: Session = Depends(get_db)):
         "ai_configured": ai_configured(),
         "section_keys": SECTION_KEYS,
         "section_labels": SECTION_LABELS,
+        "tracked_links": tracked_links,
+        "campaign_cores": campaign_cores,
+        **builder_context,
+        **sop_context,
     })
+
+
+@router.get("/campaign-cores", response_class=HTMLResponse)
+async def campaign_core_library(request: Request, db: Session = Depends(get_db)):
+    project = db.query(Project).filter_by(slug="grindlab").first()
+    campaign_cores = _get_campaign_cores(db, project.id) if project else []
+    return templates.TemplateResponse("partials/campaign_core_library.html", {
+        "request": request,
+        "campaign_cores": campaign_cores,
+    })
+
+
+@router.post("/campaign-cores", response_class=HTMLResponse)
+async def create_campaign_core(request: Request, db: Session = Depends(get_db)):
+    project = db.query(Project).filter_by(slug="grindlab").first()
+    if not project:
+        return HTMLResponse(
+            '<div class="text-xs text-mcc-critical">No Grindlab project found.</div>',
+            status_code=404,
+        )
+
+    form = await request.form()
+    payload, errors = validate_campaign_core_payload(dict(form), today=date.today())
+    if errors:
+        items = "".join(f"<li>{error}</li>" for error in errors)
+        return HTMLResponse(
+            f'<div class="rounded-lg border border-mcc-critical/30 bg-mcc-critical/10 px-3 py-2 text-xs text-mcc-critical"><ul class="list-disc pl-4 space-y-1">{items}</ul></div>',
+            status_code=400,
+        )
+
+    existing = db.query(CampaignCore).filter_by(
+        project_id=project.id,
+        campaign_slug=payload["campaign_slug"],
+    ).first()
+    if existing:
+        return HTMLResponse(
+            '<div class="rounded-lg border border-mcc-warning/30 bg-mcc-warning/10 px-3 py-2 text-xs text-mcc-warning">That campaign core already exists. Reuse it from the library below.</div>',
+            status_code=400,
+        )
+
+    core = CampaignCore(
+        project_id=project.id,
+        display_name=payload["display_name"],
+        objective=payload["objective"],
+        offer=payload["offer"],
+        audience=payload["audience"],
+        theme=payload["theme"],
+        period=payload["period"],
+        campaign_slug=payload["campaign_slug"],
+        is_active=True,
+    )
+    db.add(core)
+    db.commit()
+
+    success_html = (
+        '<div class="rounded-lg border border-mcc-success/30 bg-mcc-success/10 px-3 py-2 text-xs text-mcc-success">'
+        'Campaign core saved. Select it below, then build the tracked link.'
+        "</div>"
+    )
+    return HTMLResponse(success_html, headers={"HX-Trigger": "campaign-core-saved"})
+
+
+@router.get("/utm-links", response_class=HTMLResponse)
+async def utm_link_registry(request: Request, db: Session = Depends(get_db)):
+    project = db.query(Project).filter_by(slug="grindlab").first()
+    tracked_links = _get_tracked_links(db, project.id) if project else []
+    return templates.TemplateResponse("partials/utm_link_registry.html", {
+        "request": request,
+        "tracked_links": tracked_links,
+    })
+
+
+@router.post("/utm-links", response_class=HTMLResponse)
+async def create_tracked_link(request: Request, db: Session = Depends(get_db)):
+    project = db.query(Project).filter_by(slug="grindlab").first()
+    if not project:
+        return HTMLResponse(
+            '<div class="text-xs text-mcc-critical">No Grindlab project found.</div>',
+            status_code=404,
+        )
+
+    form = await request.form()
+    core_id = form.get("campaign_core_id")
+    campaign_core = db.get(CampaignCore, int(core_id)) if core_id and str(core_id).isdigit() else None
+    if campaign_core and campaign_core.project_id != project.id:
+        campaign_core = None
+    campaign_slug = campaign_core.campaign_slug if campaign_core else ""
+    period = campaign_core.period if campaign_core else get_period_slug(date.today())
+
+    payload, errors = normalize_builder_payload(
+        dict(form),
+        campaign_slug=campaign_slug,
+        period=period,
+        today=date.today(),
+    )
+    if errors:
+        items = "".join(f"<li>{error}</li>" for error in errors)
+        return HTMLResponse(
+            f'<div class="rounded-lg border border-mcc-critical/30 bg-mcc-critical/10 px-3 py-2 text-xs text-mcc-critical"><ul class="list-disc pl-4 space-y-1">{items}</ul></div>',
+            status_code=400,
+        )
+
+    tracked_link = TrackedLink(
+        project_id=project.id,
+        campaign_core_id=campaign_core.id if campaign_core else None,
+        owner=payload["owner"],
+        channel=payload["channel"],
+        base_url=payload["base_url"],
+        final_url=payload["final_url"],
+        utm_source=payload["utm_source"],
+        utm_medium=payload["utm_medium"],
+        utm_campaign=payload["utm_campaign"],
+        utm_content=payload["utm_content"],
+        utm_term=payload["utm_term"],
+        utm_id=payload["utm_id"],
+        placement=payload["placement"],
+        qa_status=payload["qa_status"],
+        qa_approved_by=payload["qa_approved_by"],
+        notes=payload["notes"],
+    )
+    db.add(tracked_link)
+    db.commit()
+
+    success_html = (
+        '<div class="rounded-lg border border-mcc-success/30 bg-mcc-success/10 px-3 py-2 text-xs text-mcc-success">'
+        'Tracked link saved. Recent registry entries refreshed below.'
+        "</div>"
+    )
+    return HTMLResponse(success_html, headers={"HX-Trigger": "tracked-link-saved"})
 
 
 # ---------------------------------------------------------------------------

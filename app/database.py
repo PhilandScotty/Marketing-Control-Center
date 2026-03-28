@@ -26,6 +26,7 @@ def init_db():
     from app import models  # noqa: F401
     Base.metadata.create_all(bind=engine)
     _migrate_outreach_columns()
+    _migrate_tracked_link_columns()
 
 
 def _migrate_outreach_columns():
@@ -46,5 +47,27 @@ def _migrate_outreach_columns():
     for col_name, col_type in new_cols:
         if col_name not in existing:
             cursor.execute(f"ALTER TABLE outreach_contacts ADD COLUMN {col_name} {col_type}")
+    conn.commit()
+    conn.close()
+
+
+def _migrate_tracked_link_columns():
+    """Add new tracked link columns if they don't exist (SQLite safe)."""
+    import sqlite3
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tracked_links'")
+    if not cursor.fetchone():
+        conn.close()
+        return
+
+    cursor.execute("PRAGMA table_info(tracked_links)")
+    existing = {row[1] for row in cursor.fetchall()}
+    new_cols = [
+        ("campaign_core_id", "INTEGER"),
+    ]
+    for col_name, col_type in new_cols:
+        if col_name not in existing:
+            cursor.execute(f"ALTER TABLE tracked_links ADD COLUMN {col_name} {col_type}")
     conn.commit()
     conn.close()

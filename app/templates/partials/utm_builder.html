@@ -1,0 +1,303 @@
+<div>
+    <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider">UTM Builder & Registry</h2>
+        <span class="text-[10px] text-mcc-dim">Campaign core first, link context second.</span>
+    </div>
+
+    <div class="mcc-card p-4 mb-4">
+        <div class="text-[10px] text-mcc-dim uppercase tracking-wider mb-2">How Phil Should Use This</div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div class="rounded-lg bg-mcc-bg/60 p-3">
+                <div class="text-xs font-semibold text-mcc-text mb-1">1. Reuse or create a campaign core</div>
+                <p class="text-[11px] text-mcc-muted">Campaign core = the stable idea you will reuse across multiple links, emails, posts, or ads.</p>
+            </div>
+            <div class="rounded-lg bg-mcc-bg/60 p-3">
+                <div class="text-xs font-semibold text-mcc-text mb-1">2. Pick the link context</div>
+                <p class="text-[11px] text-mcc-muted">Source, medium, and placement tell you exactly where this specific click came from.</p>
+            </div>
+            <div class="rounded-lg bg-mcc-bg/60 p-3">
+                <div class="text-xs font-semibold text-mcc-text mb-1">3. Let the tool name it</div>
+                <p class="text-[11px] text-mcc-muted">The tool generates the campaign name, content name, period, and final URL automatically.</p>
+            </div>
+            <div class="rounded-lg bg-mcc-bg/60 p-3">
+                <div class="text-xs font-semibold text-mcc-text mb-1">4. Save the final link</div>
+                <p class="text-[11px] text-mcc-muted">The registry becomes the shared record of what went live and which campaign core it belonged to.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-[1.2fr_0.95fr] gap-4 mb-4">
+        <div class="space-y-4">
+            <div class="mcc-card p-4">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                        <div class="text-xs font-semibold text-mcc-text uppercase tracking-wider">Campaign Core Library</div>
+                        <p class="text-[10px] text-mcc-dim mt-1">Select an existing reusable campaign or create a new one below.</p>
+                    </div>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-mcc-bg text-mcc-muted">{{ current_period|upper }}</span>
+                </div>
+                <div id="campaign-core-library"
+                     hx-get="/website/campaign-cores"
+                     hx-trigger="campaign-core-saved from:body">
+                    {% include "partials/campaign_core_library.html" %}
+                </div>
+            </div>
+
+            <div class="mcc-card p-4">
+                <div class="text-xs font-semibold text-mcc-text uppercase tracking-wider mb-2">Create New Campaign Core</div>
+                <p class="text-[10px] text-mcc-dim mb-3">Keep this small. Use only the stable information you want to reuse later.</p>
+                <form id="campaign-core-form"
+                      hx-post="/website/campaign-cores"
+                      hx-target="#campaign-core-result"
+                      hx-swap="innerHTML"
+                      hx-on::after-request="if(event.detail.successful){ this.reset(); window.MCCUtmBuilder && window.MCCUtmBuilder.resetCoreBuilder(); }">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">Objective <span title="What business job is this campaign doing? Acquisition, activation, retargeting, or retention." class="cursor-help text-mcc-accent">?</span></label>
+                            <select id="core-objective" name="objective"
+                                    class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                                {% for value, label in objective_options %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">Offer / Focus <span title="What is the main thing being promoted? Keep this stable if several links point to the same offer." class="cursor-help text-mcc-accent">?</span></label>
+                            <input id="core-offer" name="offer" type="text" value="free-tool"
+                                   class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">Audience <span class="font-normal text-mcc-dim">optional</span> <span title="Only use this if the audience is important enough that you will actually report on it later." class="cursor-help text-mcc-accent">?</span></label>
+                            <input id="core-audience" name="audience" type="text" placeholder="cash-players"
+                                   class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">Theme / Angle <span class="font-normal text-mcc-dim">optional</span> <span title="Use this only when the campaign message angle matters for later analysis." class="cursor-help text-mcc-accent">?</span></label>
+                            <input id="core-theme" name="theme" type="text" placeholder="ev"
+                                   class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                        <div class="rounded-lg bg-mcc-bg/60 p-3">
+                            <div class="text-[10px] text-mcc-dim uppercase tracking-wider mb-1">Auto Period</div>
+                            <div id="core-period-preview" class="text-xs font-mono text-mcc-text">{{ current_period }}</div>
+                        </div>
+                        <div class="rounded-lg bg-mcc-bg/60 p-3">
+                            <div class="text-[10px] text-mcc-dim uppercase tracking-wider mb-1">Campaign Core Preview</div>
+                            <div id="core-slug-preview" class="text-xs font-mono text-mcc-accent break-all"></div>
+                        </div>
+                    </div>
+                    <div id="campaign-core-result" class="mt-3"></div>
+                    <div class="mt-3">
+                        <button type="submit"
+                                class="px-3 py-2 rounded-lg bg-mcc-accent text-white text-xs font-semibold hover:bg-mcc-accent/80 transition-colors">
+                            Save Campaign Core
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="mcc-card p-4">
+            <div class="text-xs font-semibold text-mcc-text uppercase tracking-wider mb-2">Build Tracked Link</div>
+            <p class="text-[10px] text-mcc-dim mb-3">This form only asks for the parts that change from link to link.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="md:col-span-2">
+                    <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">Selected Campaign Core</label>
+                    <div id="selected-core-display" class="rounded-lg bg-mcc-bg px-3 py-2 text-xs text-mcc-text">Choose a saved campaign core from the library.</div>
+                    <p class="text-[10px] text-mcc-dim mt-1">This becomes the stable `utm_campaign` across all related links.</p>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">Landing Page URL <span title="This is the exact page the visitor should land on after clicking." class="cursor-help text-mcc-accent">?</span></label>
+                    <input id="utm-base-url" name="base_url" type="url" placeholder="https://grindlab.ai/leakfinder"
+                           class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">Owner</label>
+                    <select id="utm-owner" name="owner"
+                            class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                        {% for value, label in owner_options %}
+                        <option value="{{ value }}" {% if value == 'phil' %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">Link Type / Channel <span title="Start here. This is the practical marketing bucket for the link you are making, like Google Ads, Newsletter, Owned YouTube, or Cold Email. Picking this should usually set the right defaults for source, medium, and placement." class="cursor-help text-mcc-accent">?</span></label>
+                    <select id="utm-channel" name="channel"
+                            class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                        {% for value, label in channel_options %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[10px] text-mcc-dim mt-1">Start with the real use case, not the UTM jargon. Example: choose `Newsletter` for a send to your email list, `Google Ads` for search ads, `Owned YouTube` for links in your own videos, or `Cold Email` for outbound prospecting.</p>
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">UTM Source <span title="Source answers: where did the click come from? Usually this is the platform, publisher, or sending system. Keep this very consistent or reporting gets messy fast." class="cursor-help text-mcc-accent">?</span></label>
+                    <select id="utm-source" name="utm_source"
+                            class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                        {% for source in approved_sources %}
+                        <option value="{{ source }}">{{ source }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[10px] text-mcc-dim mt-1">Think “which platform or system sent the click?” Examples: `google` for Google Ads, `youtube` for YouTube traffic, `newsletter` for your house email list, `apollo` for cold outbound, `reddit` for Reddit ads.</p>
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">UTM Medium <span title="Medium answers: what kind of traffic is this? This is the traffic category, not the platform. Medium should stay standardized across channels." class="cursor-help text-mcc-accent">?</span></label>
+                    <select id="utm-medium" name="utm_medium"
+                            class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                        {% for medium in approved_media %}
+                        <option value="{{ medium }}">{{ medium }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[10px] text-mcc-dim mt-1">Think “what type of traffic was it?” Examples: `cpc` for search ads, `paid_social` for paid Reddit or Meta, `email` for your owned list, `cold_email` for outbound prospecting, `organic_video` for links in your own YouTube videos.</p>
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">Asset Type <span title="This means the format that caused the click, not the platform. Ask: was the click from an email, video, image ad, creator placement, plain link, or comment?" class="cursor-help text-mcc-accent">?</span></label>
+                    <select id="utm-asset-type" name="asset_type"
+                            class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                        {% for value, label in asset_type_options %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[10px] text-mcc-dim mt-1">Use the thing the user actually clicked. Examples: newsletter CTA = `email`, YouTube description link = `video`, creator placement = `creator`, LinkedIn post link = `link`.</p>
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">Placement / Hook <span title="Describe where the link lived or what version of the message it belonged to. This is the most useful field for telling similar links apart later." class="cursor-help text-mcc-accent">?</span></label>
+                    <input id="utm-placement" name="placement" type="text" value="main-cta"
+                           class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                    <p class="text-[10px] text-mcc-dim mt-1">Think “where exactly was this link?” Good examples: `main-cta`, `pinned-comment`, `description-main-cta`, `creator-description`, `post-link`, `footer-button`.</p>
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">Variant <span title="Only use this to separate one version from another. If there is no test or revision yet, leave it as v1." class="cursor-help text-mcc-accent">?</span></label>
+                    <input id="utm-variant" name="variant" type="text" value="v1"
+                           class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                    <p class="text-[10px] text-mcc-dim mt-1">Most of the time this just stays `v1`. Move to `v2` or `v3` only if you changed the creative, copy, link location, or CTA enough that you want it split in reporting.</p>
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">UTM Term <span class="font-normal text-mcc-dim">optional</span> <span title="This is extra targeting detail. It is only useful when you know you will want to break performance down by keyword, audience, subreddit, or segment later." class="cursor-help text-mcc-accent">?</span></label>
+                    <input id="utm-term" name="utm_term" type="text" placeholder="keyword-or-audience"
+                           class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                    <p class="text-[10px] text-mcc-dim mt-1">Skip this for most links. Good uses: Google Ads keyword, subreddit name, email segment, or paid audience. If you are unsure, leave it blank.</p>
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">UTM ID <span title="This is a unique tracking ID for stricter attribution. You do not need to invent one manually. The builder suggests it automatically and only certain link types truly require it." class="cursor-help text-mcc-accent">?</span></label>
+                    <input id="utm-id" name="utm_id" type="text" placeholder="auto-suggested"
+                           class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none">
+                    <p id="utm-id-rule" class="text-[10px] text-mcc-dim mt-1">Auto-suggested. Required for paid, partner, affiliate, and cold outbound links.</p>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="text-[10px] text-mcc-muted uppercase font-semibold mb-1 block">Notes <span class="font-normal text-mcc-dim">optional</span></label>
+                    <textarea id="utm-notes" name="notes" rows="2" placeholder="Launch note, partner note, creator note, or context for this exact link"
+                              class="w-full bg-mcc-bg border border-mcc-border rounded-lg px-3 py-2 text-xs text-mcc-text focus:border-mcc-accent focus:outline-none resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-mcc-border/40 bg-mcc-bg/30 p-3">
+                <div class="text-[10px] text-mcc-dim uppercase tracking-wider mb-2">How Channel, Source, And Medium Work Together</div>
+                <div class="space-y-1 text-[11px] text-mcc-muted mb-3">
+                    <div><span class="text-mcc-text">Channel:</span> the practical marketing use case you are working on.</div>
+                    <div><span class="text-mcc-text">Source:</span> the platform or system that sent the click.</div>
+                    <div><span class="text-mcc-text">Medium:</span> the traffic type.</div>
+                </div>
+                <div class="space-y-1 text-[11px] text-mcc-muted">
+                    <div><span class="text-mcc-text">Google Ads:</span> channel = `Google Ads`, source = `google`, medium = `cpc`</div>
+                    <div><span class="text-mcc-text">Newsletter send:</span> channel = `Newsletter`, source = `newsletter`, medium = `email`</div>
+                    <div><span class="text-mcc-text">Owned YouTube link:</span> channel = `Owned YouTube`, source = `youtube`, medium = `organic_video`</div>
+                    <div><span class="text-mcc-text">Partner YouTube placement:</span> channel = `Partner YouTube`, source = `youtube`, medium = `partner`</div>
+                    <div><span class="text-mcc-text">Cold outbound email:</span> channel = `Cold Email`, source = `apollo`, medium = `cold_email`</div>
+                </div>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-mcc-border/40 bg-mcc-bg/30 p-3">
+                <div class="text-[10px] text-mcc-dim uppercase tracking-wider mb-2">How To Think About These Fields</div>
+                <div class="space-y-1 text-[11px] text-mcc-muted">
+                    <div><span class="text-mcc-text">Link type / channel:</span> What kind of marketing activity is this?</div>
+                    <div><span class="text-mcc-text">UTM source:</span> Which platform or system sent the click?</div>
+                    <div><span class="text-mcc-text">UTM medium:</span> What type of traffic is it?</div>
+                    <div><span class="text-mcc-text">Asset type:</span> What kind of thing did they click?</div>
+                    <div><span class="text-mcc-text">Placement / hook:</span> Where exactly did that link appear?</div>
+                    <div><span class="text-mcc-text">Variant:</span> Which version was it?</div>
+                    <div><span class="text-mcc-text">UTM term:</span> Extra targeting detail only if it will matter later.</div>
+                    <div><span class="text-mcc-text">UTM ID:</span> Unique tracking ID. Usually just accept the tool's suggestion.</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 mt-4 pt-4 border-t border-mcc-border/30">
+                <div>
+                    <div class="text-[10px] text-mcc-muted mb-1">utm_campaign</div>
+                    <div id="utm-campaign-preview" class="rounded-lg bg-mcc-bg px-3 py-2 text-xs text-mcc-accent font-mono break-all">Choose a campaign core first.</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-mcc-muted mb-1">utm_content</div>
+                    <div id="utm-content-preview" class="rounded-lg bg-mcc-bg px-3 py-2 text-xs text-mcc-accent font-mono break-all"></div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-mcc-muted mb-1">Final URL</div>
+                    <div id="utm-final-url-preview" class="rounded-lg bg-mcc-bg px-3 py-2 text-xs text-mcc-text font-mono break-all min-h-[84px]"></div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <div class="text-[10px] text-mcc-dim uppercase tracking-wider mb-2">Quick Checks</div>
+                <ul id="utm-builder-warnings" class="space-y-1 text-[11px] text-mcc-muted">
+                    <li>Select a campaign core from the library or create a new one first.</li>
+                </ul>
+                <p class="text-[10px] text-mcc-dim mt-2">New links save as draft automatically. You do not need a formal QA step here unless a link is high stakes.</p>
+                <div id="utm-save-result" class="mt-3"></div>
+                <div class="flex items-center gap-2 mt-4">
+                    <button type="button" id="utm-copy-button"
+                            class="px-3 py-2 rounded-lg bg-mcc-bg text-mcc-muted text-xs font-medium hover:text-mcc-text transition-colors">
+                        Copy URL
+                    </button>
+                    <form id="utm-save-form"
+                          hx-post="/website/utm-links"
+                          hx-target="#utm-save-result"
+                          hx-swap="innerHTML"
+                          hx-on::after-request="if(event.detail.successful){ this.reset(); window.MCCUtmBuilder && window.MCCUtmBuilder.resetGeneratedState(); }">
+                        <input type="hidden" name="campaign_core_id">
+                        <input type="hidden" name="base_url">
+                        <input type="hidden" name="owner">
+                        <input type="hidden" name="channel">
+                        <input type="hidden" name="utm_source">
+                        <input type="hidden" name="utm_medium">
+                        <input type="hidden" name="asset_type">
+                        <input type="hidden" name="placement">
+                        <input type="hidden" name="variant">
+                        <input type="hidden" name="utm_term">
+                        <input type="hidden" name="utm_id">
+                        <input type="hidden" name="qa_status" value="draft">
+                        <input type="hidden" name="qa_approved_by" value="">
+                        <input type="hidden" name="notes">
+                        <button type="submit"
+                                class="px-3 py-2 rounded-lg bg-mcc-accent text-white text-xs font-semibold hover:bg-mcc-accent/80 transition-colors">
+                            Save Link
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3 flex items-center justify-between">
+        <h3 class="text-xs font-semibold text-mcc-muted uppercase tracking-wider">Recent Registry</h3>
+        <span class="text-[10px] text-mcc-dim">Latest 12 tracked links saved in SQLite.</span>
+    </div>
+    <p class="text-[10px] text-mcc-dim mb-3">Think of this as the launch log. The registry answers both “which exact link went live?” and “which campaign core did it belong to?”</p>
+    <div id="utm-link-registry"
+         hx-get="/website/utm-links"
+         hx-trigger="tracked-link-saved from:body">
+        {% include "partials/utm_link_registry.html" %}
+    </div>
+</div>
