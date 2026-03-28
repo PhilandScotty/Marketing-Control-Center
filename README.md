@@ -25,6 +25,23 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 5050
 
 Or use the Dock app: `Marketing Command Center.app`
 
+### Windows Local Dev
+
+```powershell
+cd C:\Projects\Marketing-Control-Center
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+python run.py
+```
+
+Open [http://localhost:5050](http://localhost:5050) after startup.
+
+### Optional `.env`
+
+MCC calls `load_dotenv()` from `app/config.py`, so you can place a `.env` file in the repo root for local secrets. Most integrations are optional; the app should still boot without them and fall back to manual workflows.
+
 ## Multi-Project Architecture
 
 Each project lives in the database. Seed files are backups and templates.
@@ -124,6 +141,7 @@ export STRIPE_API_KEY="sk_live_..."
 ```
 
 Missing keys are fine — integrations fall back to manual entry.
+GA4 setup may also require `cryptography`, but only if you want the GA4 integration enabled locally.
 
 ## Key Pages
 

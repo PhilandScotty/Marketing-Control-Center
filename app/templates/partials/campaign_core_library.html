@@ -1,0 +1,31 @@
+{% if campaign_cores %}
+<div class="space-y-2">
+    {% for core in campaign_cores %}
+    <label class="block cursor-pointer">
+        <input type="radio"
+               name="campaign_core_choice"
+               value="{{ core.id }}"
+               class="sr-only campaign-core-radio"
+               data-core-id="{{ core.id }}"
+               data-core-slug="{{ core.campaign_slug }}"
+               data-core-period="{{ core.period }}"
+               data-core-display="{{ core.display_name }}"
+               {% if loop.first %}checked{% endif %}>
+        <div class="rounded-lg border border-mcc-border bg-mcc-bg/40 px-3 py-3 transition-colors campaign-core-card">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <div class="text-xs font-semibold text-mcc-text">{{ core.display_name }}</div>
+                    <div class="text-[10px] text-mcc-dim mt-1">{{ core.campaign_slug }}</div>
+                </div>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-mcc-card text-mcc-muted">{{ core.period|upper }}</span>
+            </div>
+        </div>
+    </label>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rounded-lg border border-dashed border-mcc-border/60 bg-mcc-bg/30 px-3 py-4 text-center">
+    <p class="text-xs text-mcc-muted">No campaign cores saved yet.</p>
+    <p class="text-[10px] text-mcc-dim mt-1">Create one below. After that, Phil can reuse it for future links instead of rebuilding the campaign every time.</p>
+</div>
+{% endif %}

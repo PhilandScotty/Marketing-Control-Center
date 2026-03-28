@@ -2,6 +2,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from app.database import get_db, init_db
 from seeds.grindlab import seed_grindlab
@@ -19,6 +20,21 @@ from app.routes import rd_lab
 from app.scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(level=logging.INFO)
+
+_original_template_response = Jinja2Templates.TemplateResponse
+
+
+def _compat_template_response(self, *args, **kwargs):
+    """Support the repo's existing TemplateResponse(name, context) pattern."""
+    if len(args) >= 2 and isinstance(args[0], str) and isinstance(args[1], dict):
+        request = args[1].get("request")
+        if request is None:
+            raise ValueError("Template context must include request")
+        return _original_template_response(self, request, args[0], args[1], *args[2:], **kwargs)
+    return _original_template_response(self, *args, **kwargs)
+
+
+Jinja2Templates.TemplateResponse = _compat_template_response
 
 app = FastAPI(title="Marketing Command Center")
 
