@@ -808,14 +808,17 @@ window.MCCUtmBuilder = (() => {
         }
     };
 
-    const buildCampaignSlug = (objective, offer, audience, theme) => {
-        return [
+    const buildCampaignSlug = (objective, offer, audience, theme, includeAutoPeriod) => {
+        const parts = [
             slugify(objective),
             slugify(offer),
             slugify(audience),
             slugify(theme),
-            slugify(currentPeriod),
-        ].filter(Boolean).join("-");
+        ];
+        if (includeAutoPeriod) {
+            parts.push(slugify(currentPeriod));
+        }
+        return parts.filter(Boolean).join("-");
     };
 
     const buildContentName = (assetType, placement, variant) => {
@@ -832,10 +835,13 @@ window.MCCUtmBuilder = (() => {
         coreOffer: document.getElementById("core-offer"),
         coreAudience: document.getElementById("core-audience"),
         coreTheme: document.getElementById("core-theme"),
+        coreEvergreen: document.getElementById("core-evergreen"),
         corePeriodPreview: document.getElementById("core-period-preview"),
         coreSlugPreview: document.getElementById("core-slug-preview"),
         selectedCoreDisplay: document.getElementById("selected-core-display"),
         campaignCoreLibrary: document.getElementById("campaign-core-library"),
+        baseUrlSelect: document.getElementById("utm-base-url-select"),
+        baseUrlCustom: document.getElementById("utm-base-url-custom"),
         baseUrl: document.getElementById("utm-base-url"),
         owner: document.getElementById("utm-owner"),
         channel: document.getElementById("utm-channel"),
@@ -883,6 +889,15 @@ window.MCCUtmBuilder = (() => {
                 }
             }
         });
+    };
+
+    const syncBaseUrl = (elements) => {
+        if (!elements.baseUrlSelect) return;
+        const isCustom = elements.baseUrlSelect.value === "__custom__";
+        elements.baseUrlCustom.classList.toggle("hidden", !isCustom);
+        elements.baseUrl.value = isCustom
+            ? elements.baseUrlCustom.value
+            : elements.baseUrlSelect.value;
     };
 
     const syncHiddenFields = (elements) => {
@@ -935,7 +950,11 @@ window.MCCUtmBuilder = (() => {
         elements.source.value = preset.utm_source;
         elements.medium.value = preset.utm_medium;
         elements.assetType.value = preset.asset_type;
-        if (!elements.placement.value || ["main-cta", "ad-main", "creator-description", "post-link", "description-main-cta", "cta-primary"].includes(elements.placement.value)) {
+        const presetPlacements = [
+            "main-cta", "ad-main", "creator-description", "post-link", "description-main-cta", "cta-primary",
+            "qr-card-protector", "booth-table", "floor-giveaway",
+        ];
+        if (!elements.placement.value || presetPlacements.includes(elements.placement.value)) {
             elements.placement.value = preset.placement;
         }
     };
@@ -945,13 +964,19 @@ window.MCCUtmBuilder = (() => {
         if (!elements.coreSlugPreview) {
             return;
         }
+        const evergreen = !!(elements.coreEvergreen && elements.coreEvergreen.checked);
         const preview = buildCampaignSlug(
             elements.coreObjective?.value,
             elements.coreOffer?.value,
             elements.coreAudience?.value,
             elements.coreTheme?.value,
+            !evergreen,
         );
-        elements.corePeriodPreview.textContent = currentPeriod;
+        if (elements.corePeriodPreview) {
+            elements.corePeriodPreview.textContent = evergreen
+                ? "Evergreen (no auto period in slug)"
+                : currentPeriod;
+        }
         elements.coreSlugPreview.textContent = preview || "Add objective + offer to preview the reusable campaign name.";
     };
 
@@ -960,6 +985,7 @@ window.MCCUtmBuilder = (() => {
         if (!elements.baseUrl) {
             return;
         }
+        syncBaseUrl(elements);
         const selectedCore = getSelectedCore();
 
         const campaign = selectedCore ? selectedCore.slug : "";
@@ -1045,7 +1071,8 @@ window.MCCUtmBuilder = (() => {
     const init = () => {
         const elements = getElements();
         const inputs = [
-            elements.baseUrl, elements.owner, elements.channel, elements.source, elements.medium,
+            elements.baseUrlSelect, elements.baseUrlCustom,
+            elements.owner, elements.channel, elements.source, elements.medium,
             elements.assetType, elements.placement, elements.variant, elements.term,
             elements.qaStatus, elements.qaApprovedBy, elements.notes,
         ];
@@ -1061,6 +1088,9 @@ window.MCCUtmBuilder = (() => {
                 input.addEventListener("change", updateCorePreview);
             }
         });
+        if (elements.coreEvergreen) {
+            elements.coreEvergreen.addEventListener("change", updateCorePreview);
+        }
         if (elements.utmId) {
             elements.utmId.addEventListener("input", () => {
                 elements.utmId.dataset.userEdited = elements.utmId.value ? "true" : "";
@@ -1096,6 +1126,9 @@ window.MCCUtmBuilder = (() => {
         if (elements.coreTheme) {
             elements.coreTheme.value = "";
         }
+        if (elements.coreEvergreen) {
+            elements.coreEvergreen.checked = false;
+        }
         updateCorePreview();
     };
 
@@ -1105,6 +1138,13 @@ window.MCCUtmBuilder = (() => {
             return;
         }
         elements.utmId.dataset.userEdited = "";
+        if (elements.baseUrlSelect) {
+            elements.baseUrlSelect.selectedIndex = 0;
+        }
+        if (elements.baseUrlCustom) {
+            elements.baseUrlCustom.value = "";
+            elements.baseUrlCustom.classList.add("hidden");
+        }
         elements.baseUrl.value = "";
         elements.channel.value = "newsletter";
         applyContextPreset();
