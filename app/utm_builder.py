@@ -12,6 +12,9 @@ APPROVED_SOURCES = [
     "x",
     "apollo",
     "newsletter",
+    "offline",
+    "cardroom",
+    "live-event",
 ]
 
 APPROVED_MEDIA = [
@@ -25,6 +28,9 @@ APPROVED_MEDIA = [
     "organic_comment",
     "partner",
     "affiliate",
+    "qr",
+    "offline",
+    "in_person",
 ]
 
 OWNER_OPTIONS = [
@@ -50,6 +56,9 @@ CHANNEL_OPTIONS = [
     ("founder_social", "Founder Social"),
     ("blog_distribution", "Blog Distribution"),
     ("newsletter", "Newsletter"),
+    ("in_person_qr", "In-person / QR swag"),
+    ("live_event", "Live event / booth"),
+    ("cardroom_floor", "Card room / casino floor"),
 ]
 
 OBJECTIVE_OPTIONS = [
@@ -66,6 +75,18 @@ ASSET_TYPE_OPTIONS = [
     ("creator", "Creator"),
     ("link", "Link"),
     ("comment", "Comment"),
+    ("swag", "Swag / merch"),
+    ("print", "Print / handout"),
+    ("booth", "Booth / table"),
+]
+
+LANDING_PAGE_OPTIONS = [
+    ("https://grindlab.ai", "grindlab.ai — Homepage"),
+    ("https://grindlab.ai/leakfinder", "grindlab.ai/leakfinder — Leak Finder"),
+    ("https://grindlab.ai/quiz", "grindlab.ai/quiz — Quiz"),
+    ("https://grindlab.ai/blog", "grindlab.ai/blog — Blog"),
+    ("https://grindlab.ai/pricing", "grindlab.ai/pricing — Pricing"),
+    ("https://grindlab.ai/contact", "grindlab.ai/contact — Contact"),
 ]
 
 CONTEXT_PRESETS = {
@@ -138,6 +159,27 @@ CONTEXT_PRESETS = {
         "utm_medium": "organic_social",
         "asset_type": "link",
         "placement": "post-link",
+    },
+    "in_person_qr": {
+        "label": "In-person / QR swag",
+        "utm_source": "offline",
+        "utm_medium": "qr",
+        "asset_type": "swag",
+        "placement": "qr-card-protector",
+    },
+    "live_event": {
+        "label": "Live event / booth",
+        "utm_source": "live-event",
+        "utm_medium": "in_person",
+        "asset_type": "booth",
+        "placement": "booth-table",
+    },
+    "cardroom_floor": {
+        "label": "Card room / casino floor",
+        "utm_source": "cardroom",
+        "utm_medium": "in_person",
+        "asset_type": "swag",
+        "placement": "floor-giveaway",
     },
 }
 
@@ -253,6 +295,15 @@ def validate_base_url(base_url: str) -> bool:
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
+def _truthy_form_flag(value) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    s = str(value).strip().lower()
+    return s in ("1", "true", "on", "yes")
+
+
 def validate_campaign_core_payload(raw: dict, today: date | None = None) -> tuple[dict, list[str]]:
     today = today or date.today()
     errors: list[str] = []
@@ -261,7 +312,9 @@ def validate_campaign_core_payload(raw: dict, today: date | None = None) -> tupl
     offer = slugify_utm_value(raw.get("offer", ""))
     audience = slugify_utm_value(raw.get("audience", ""))
     theme = slugify_utm_value(raw.get("theme", ""))
-    period = get_period_slug(today)
+    # Evergreen = omit quarter/year from slug (physical promos, long-running cores)
+    evergreen = _truthy_form_flag(raw.get("evergreen"))
+    period = "" if evergreen else get_period_slug(today)
 
     if objective not in {value for value, _ in OBJECTIVE_OPTIONS}:
         errors.append("Choose a valid campaign objective.")
